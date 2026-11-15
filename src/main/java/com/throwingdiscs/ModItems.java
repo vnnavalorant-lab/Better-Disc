@@ -8,7 +8,6 @@ import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 public final class ModItems {
-    public static final Item COPPER_THROWING_DISC = register(DiscTier.COPPER);
     public static final Item IRON_THROWING_DISC = register(DiscTier.IRON);
     public static final Item GOLD_THROWING_DISC = register(DiscTier.GOLD);
     public static final Item DIAMOND_THROWING_DISC = register(DiscTier.DIAMOND);
@@ -26,7 +25,6 @@ public final class ModItems {
 
     public static void init() {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> {
-            entries.add(COPPER_THROWING_DISC);
             entries.add(IRON_THROWING_DISC);
             entries.add(GOLD_THROWING_DISC);
             entries.add(DIAMOND_THROWING_DISC);

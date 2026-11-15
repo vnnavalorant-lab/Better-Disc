@@ -1,7 +1,6 @@
 package com.throwingdiscs;
 
 public enum DiscTier {
-    COPPER("copper", 5.0f, 1.25, 0xC77B4A),
     IRON("iron", 6.0f, 1.30, 0xDADADA),
     GOLD("gold", 5.0f, 1.60, 0xFFD83C),
     DIAMOND("diamond", 8.0f, 1.40, 0x3BEFD0),

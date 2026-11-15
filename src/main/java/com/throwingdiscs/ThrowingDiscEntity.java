@@ -8,6 +8,12 @@ import java.util.Map;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.SwordItem;
+import net.minecraft.item.ToolMaterials;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Hand;
+import java.util.UUID;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
@@ -56,12 +62,20 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     private final List<Vec3d> path = new ArrayList<>();   // path[0] = ponto de lançamento
     private final Map<Integer, Integer> hitCooldown = new HashMap<>();
 
+    // --- defesa com espada (clash) ---
+    private static final int CLASH_TICKS = 60;          // 3 segundos
+    private int clashTicks = 0;
+    private UUID clashTarget = null;
+    private UUID parrier = null;
+    private boolean parried = false;                    // cada disco só sofre um clash
+    private boolean hostileReturn = false;              // volta machucando quem lançou
+
     public ThrowingDiscEntity(EntityType<? extends ThrowingDiscEntity> type, World world) {
         super(type, world);
         this.setNoGravity(true);
     }
 
-    public ThrowingDiscEntity(World world, net.minecraft.entity.LivingEntity owner, ItemStack stack, boolean refund) {
+    public ThrowingDiscEntity(World world, LivingEntity owner, ItemStack stack, boolean refund) {
         this(ModEntities.THROWING_DISC, world);
         this.setOwner(owner);
         this.setStack(stack);
@@ -80,6 +94,12 @@ public class ThrowingDiscEntity extends ProjectileEntity {
 
     public void setStack(ItemStack stack) {
         this.dataTracker.set(STACK, stack);
+    }
+
+    /** Há algum disco de outro jogador por perto? Só então as espadas podem "defender" (animação 1.8). */
+    public static boolean hasThreat(World world, LivingEntity user) {
+        return !world.getEntitiesByClass(ThrowingDiscEntity.class,
+                user.getBoundingBox().expand(16.0), d -> d.getOwner() != user).isEmpty();
     }
 
     public DiscTier getTier() {
@@ -137,6 +157,11 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         if (path.isEmpty() && !returning) path.add(getPos());
         Vec3d from = getPos();
         flightTicks++;
+
+        if (clashTicks > 0) {
+            tickClash(world);
+            return;
+        }
 
         if (!returning) {
             boolean outOfWorld = getY() < world.getBottomY() - 8 || getY() > world.getTopY() + 64;
@@ -252,6 +277,12 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     }
 
     private void pickUp(ServerWorld world, Entity owner) {
+        if (hostileReturn && owner instanceof LivingEntity victim) {
+            Entity attacker = parrier == null ? null : world.getEntity(parrier);
+            victim.damage(world.getDamageSources().thrown(this, attacker), getTier().damage);
+            world.spawnParticles(ParticleTypes.CRIT, victim.getX(), victim.getBodyY(0.5), victim.getZ(),
+                    12, 0.25, 0.3, 0.25, 0.3);
+        }
         if (refund) {
             ItemStack stack = getStack().copy();
             if (owner instanceof PlayerEntity player) {
@@ -290,12 +321,107 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         if (result == null) return;
 
         Entity target = result.getEntity();
+        if (!parried && !returning && target instanceof LivingEntity le
+                && le.isUsingItem() && le.getActiveItem().getItem() instanceof SwordItem) {
+            startClash(world, le);
+            return;
+        }
         hitCooldown.put(target.getId(), flightTicks + 10);
         target.damage(world.getDamageSources().thrown(this, owner), getTier().damage);
         world.playSound(null, target.getX(), target.getY(), target.getZ(),
                 SoundEvents.ENTITY_ARROW_HIT, SoundCategory.PLAYERS, 0.8f, 1.2f);
         world.spawnParticles(ParticleTypes.CRIT, target.getX(), target.getBodyY(0.5), target.getZ(),
                 10, 0.2, 0.3, 0.2, 0.3);
+    }
+
+
+    // ------------------------------------------------------------------ CLASH COM ESPADA
+
+    private void startClash(ServerWorld world, LivingEntity target) {
+        parried = true;
+        clashTicks = CLASH_TICKS;
+        clashTarget = target.getUuid();
+        parrier = target.getUuid();
+        setVelocity(Vec3d.ZERO);
+        world.playSound(null, target.getX(), target.getY(), target.getZ(),
+                SoundEvents.ITEM_SHIELD_BLOCK, SoundCategory.PLAYERS, 1.0f, 1.6f);
+    }
+
+    private void tickClash(ServerWorld world) {
+        Entity e = clashTarget == null ? null : world.getEntity(clashTarget);
+        if (!(e instanceof LivingEntity target) || !target.isAlive()) {
+            endClash(false);
+            return;
+        }
+        boolean still = target.isUsingItem() && target.getActiveItem().getItem() instanceof SwordItem;
+
+        // o disco fica preso na lâmina, na frente do peito de quem defende
+        Vec3d look = target.getRotationVec(1.0f);
+        Vec3d pos = target.getPos().add(0, target.getHeight() * 0.62, 0).add(look.multiply(0.7));
+        setPosition(pos);
+        setVelocity(Vec3d.ZERO);
+        sparks(world, pos, 1.0f);
+
+        if (clashTicks % 6 == 0) {
+            world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.BLOCK_GRINDSTONE_USE,
+                    SoundCategory.PLAYERS, 0.5f, 1.7f + world.random.nextFloat() * 0.3f);
+        }
+
+        clashTicks--;
+        if (clashTicks <= 0 || !still) {
+            resolveClash(world, target);
+        }
+    }
+
+    /** Faíscas realistas: centelhas brancas, brasas laranja, fagulhas de fogos e pequenas chamas. */
+    private void sparks(ServerWorld world, Vec3d p, float intensity) {
+        int n = Math.max(1, Math.round(6 * intensity));
+        world.spawnParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y, p.z, n, 0.12, 0.12, 0.12, 0.45);
+        world.spawnParticles(ParticleTypes.FIREWORK, p.x, p.y, p.z, Math.max(1, n / 2), 0.05, 0.05, 0.05, 0.22);
+        world.spawnParticles(new DustParticleEffect(Vec3d.unpackRgb(0xFFB020).toVector3f(), 0.6f),
+                p.x, p.y, p.z, n, 0.2, 0.2, 0.2, 0.05);
+        world.spawnParticles(ParticleTypes.CRIT, p.x, p.y, p.z, 3, 0.1, 0.1, 0.1, 0.5);
+        world.spawnParticles(ParticleTypes.SMALL_FLAME, p.x, p.y, p.z, 2, 0.08, 0.08, 0.08, 0.06);
+        if (world.random.nextInt(3) == 0) {
+            world.spawnParticles(ParticleTypes.LAVA, p.x, p.y, p.z, 1, 0.1, 0.1, 0.1, 0.0);
+        }
+    }
+
+    private void endClash(boolean hostile) {
+        clashTicks = 0;
+        hostileReturn = hostile;
+        path.add(getPos());
+        beginReturn();
+    }
+
+    /** Passados os 3s: espada fraca quebra e fere quem defendeu; espada boa rebate o disco contra quem lançou. */
+    private void resolveClash(ServerWorld world, LivingEntity target) {
+        Vec3d pos = getPos();
+        Hand hand = target.isUsingItem() ? target.getActiveHand() : Hand.MAIN_HAND;
+        ItemStack sword = target.getStackInHand(hand);
+        if (!(sword.getItem() instanceof SwordItem si)) {
+            endClash(false);
+            return;
+        }
+
+        boolean weak = si.getMaterial() == ToolMaterials.WOOD
+                || Registries.ITEM.getId(si).getPath().contains("copper");
+
+        sparks(world, pos, 3.0f);
+        if (weak) {
+            target.stopUsingItem();
+            target.sendToolBreakStatus(hand);
+            target.setStackInHand(hand, ItemStack.EMPTY);
+            world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ENTITY_ITEM_BREAK,
+                    SoundCategory.PLAYERS, 1.0f, 0.9f);
+            target.damage(world.getDamageSources().thrown(this, getOwner()), getTier().damage);
+            endClash(false);              // volta ao dono sem machucá-lo
+        } else {
+            sword.damage(1, target, t -> t.sendToolBreakStatus(hand));
+            world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ITEM_SHIELD_BLOCK,
+                    SoundCategory.PLAYERS, 1.0f, 1.2f);
+            endClash(true);               // rebatido: volta contra quem lançou
+        }
     }
 
     // ------------------------------------------------------------------ NBT
@@ -308,6 +434,11 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         nbt.putBoolean("Refund", refund);
         nbt.putInt("FlightTicks", flightTicks);
         nbt.putInt("ReturnIdx", returnIdx);
+        nbt.putInt("ClashTicks", clashTicks);
+        nbt.putBoolean("Parried", parried);
+        nbt.putBoolean("Hostile", hostileReturn);
+        if (clashTarget != null) nbt.putUuid("ClashTarget", clashTarget);
+        if (parrier != null) nbt.putUuid("Parrier", parrier);
         NbtList list = new NbtList();
         for (Vec3d v : path) {
             NbtCompound c = new NbtCompound();
@@ -327,6 +458,11 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         refund = !nbt.contains("Refund") || nbt.getBoolean("Refund");
         flightTicks = nbt.getInt("FlightTicks");
         returnIdx = nbt.getInt("ReturnIdx");
+        clashTicks = nbt.getInt("ClashTicks");
+        parried = nbt.getBoolean("Parried");
+        hostileReturn = nbt.getBoolean("Hostile");
+        clashTarget = nbt.containsUuid("ClashTarget") ? nbt.getUuid("ClashTarget") : null;
+        parrier = nbt.containsUuid("Parrier") ? nbt.getUuid("Parrier") : null;
         path.clear();
         NbtList list = nbt.getList("Path", NbtElement.COMPOUND_TYPE);
         for (int i = 0; i < list.size(); i++) {
