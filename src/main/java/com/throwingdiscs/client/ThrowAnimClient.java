@@ -5,36 +5,86 @@ import java.util.Map;
 
 import com.throwingdiscs.ThrowingDiscItem;
 
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 
 /**
- * Animação de arremesso por cima do ombro (estilo do addon Actions & Stuff): braço levantado atrás da cabeça,
- * chicote para frente na soltura, follow-through com o braço descendo, outro braço de equilíbrio e um passo à frente.
+ * Animação de arremesso importada de animation_disc_player.bbmodel (animação "attack", 1.125s).
+ * Os keyframes abaixo são os do Blockbench (graus / pixels, convenção Bedrock, interpolação catmull-rom).
+ * Conversão para ModelPart do Java feita nos mixins: pitch = -x, yaw = -y, roll = z; pivotX -= x, pivotY -= y, pivotZ += z.
  *
- * Valores dos keyframes (todos em radianos, exceto TWIST em graus). Convenção "positivo = para fora"
- * para yaw/roll; o espelhamento para canhotos/braço esquerdo é feito em {@link #sample}/mixins.
- *
- * Colunas: 0 TWIST | 1 T.pitch 2 T.yaw 3 T.roll | 4 O.pitch 5 O.yaw 6 O.roll | 7 Tleg.pitch 8 Oleg.pitch 9 SPREAD
- * T = braço que arremessa, O = outro braço.
+ * Carga (segurar botão direito): toca o começo da animação até 0.375s e segura essa pose.
+ * Soltar: continua dali até o fim.
  */
 public final class ThrowAnimClient {
-    public static final int DURATION = 28;
-    public static final int N = 10;
+    public static final float CHARGE_TIME = 0.375f;           // segundos (pose de carga)
+    public static final float DURATION_TICKS = 1.125f * 20f;  // 22.5 ticks
 
-    // {tempo(ticks), 10 valores}  -- estilo "Actions & Stuff": arremesso por cima do ombro
-    // t4 = pose de carga (braço atrás/acima da cabeça), t7 = soltura (braço chicoteia à frente), t10+ = follow-through
-    private static final float[][] KEYS = {
-        {  0,   0f,   0f,     0f,    0f,    0f,    0f,   0f,   0f,    0f,   0f },
-        {  4,  20f, -2.75f, 0.15f, 0.25f, -1.15f, -0.10f, 0f,  0.30f, -0.30f, 0.08f },
-        {  7, -10f, -1.55f, -0.05f, 0.05f, -0.40f,  0.10f, 0.2f, 0.25f, -0.45f, 0.10f },
-        { 10, -25f, -0.70f, -0.25f, 0f,   -0.20f,  0.10f, 0.2f, 0.30f, -0.50f, 0.10f },
-        { 18, -25f, -0.70f, -0.25f, 0f,   -0.20f,  0.10f, 0.2f, 0.30f, -0.50f, 0.10f },
-        { 28,   0f,   0f,     0f,    0f,    0f,    0f,   0f,   0f,    0f,   0f },
-    };
+    public static final int HEAD = 0, BODY = 1, R_ARM = 2, L_ARM = 3, R_LEG = 4, L_LEG = 5;
 
-    private record Anim(int startAge, boolean rightArm) {}
+    /** Pose amostrada (convenção do arremesso com a mão DIREITA; espelhar para canhotos). */
+    public static final class Pose {
+        public final float[][] rot = new float[6][3];
+        public final float[][] pos = new float[6][3];
+    }
+
+    private record Track(float[] t, float[][] v) {
+        void at(float time, float[] out) {
+            int n = t.length;
+            if (time <= t[0]) { System.arraycopy(v[0], 0, out, 0, 3); return; }
+            if (time >= t[n - 1]) { System.arraycopy(v[n - 1], 0, out, 0, 3); return; }
+            int i = 0;
+            while (i < n - 2 && time >= t[i + 1]) i++;
+            float u = (time - t[i]) / (t[i + 1] - t[i]);
+            float[] p0 = v[Math.max(i - 1, 0)], p1 = v[i], p2 = v[i + 1], p3 = v[Math.min(i + 2, n - 1)];
+            float u2 = u * u, u3 = u2 * u;
+            for (int c = 0; c < 3; c++) {
+                out[c] = 0.5f * ((2f * p1[c]) + (-p0[c] + p2[c]) * u
+                        + (2f * p0[c] - 5f * p1[c] + 4f * p2[c] - p3[c]) * u2
+                        + (-p0[c] + 3f * p1[c] - 3f * p2[c] + p3[c]) * u3);
+            }
+        }
+    }
+
+    private static Track tr(float[] t, float[]... v) { return new Track(t, v); }
+    private static float[] v3(float x, float y, float z) { return new float[] { x, y, z }; }
+
+    private static final Track[] ROT = new Track[6];
+    private static final Track[] POS = new Track[6];
+
+    static {
+        POS[HEAD] = tr(new float[] {0, .25f, .5f, .875f, 1.125f},
+                v3(0,0,0), v3(0,0,0), v3(-1,0,-2), v3(-1,0,-2), v3(0,0,0));
+
+        ROT[BODY] = tr(new float[] {0, .25f, .375f, .75f, 1.04167f, 1.125f},
+                v3(0,0,0), v3(0,20,0), v3(-21,20,0), v3(-10.1292f,-21.9033f,7.2639f), v3(-18.13f,-21.9f,7.26f), v3(0,0,0));
+        POS[BODY] = tr(new float[] {0, .25f, .375f, .75f, 1.04167f, 1.125f},
+                v3(0,0,0), v3(0,0,0), v3(-1,0,-3), v3(-1,0,-1), v3(-1,0,-2), v3(0,0,0));
+
+        ROT[R_ARM] = tr(new float[] {0, .375f, .58333f, 1.04167f, 1.125f},
+                v3(0,0,0), v3(90,52.5f,0), v3(-90,-22.5f,180), v3(90,2.5f,0), v3(0,0,0));
+        POS[R_ARM] = tr(new float[] {0, .375f, .5f, .58333f, 1.04167f, 1.125f},
+                v3(0,0,0), v3(-1,0,-2), v3(-1,0,-2), v3(0,0,-1), v3(-2,0,3), v3(0,0,0));
+
+        ROT[L_ARM] = tr(new float[] {0, .25f, .5f, .75f, 1.125f},
+                v3(0,0,0), v3(0,0,-22.5f), v3(0,0,-22.5f), v3(0,-67.5f,-22.5f), v3(0,0,0));
+        POS[L_ARM] = tr(new float[] {0, .25f, .5f, .75f, 1.125f},
+                v3(0,0,0), v3(0,0,2), v3(-1,0,-2), v3(0,0,-3), v3(0,0,0));
+
+        ROT[R_LEG] = tr(new float[] {0, .25f, .5f, .875f, 1.125f},
+                v3(0,0,0), v3(0,-45,0), v3(-20.941f,-40.7895f,30.3612f), v3(-20.941f,-40.7895f,30.3612f), v3(0,0,0));
+        POS[R_LEG] = tr(new float[] {.875f, 1f, 1.125f},
+                v3(0,0,0), v3(0,2,-2), v3(0,0,0));
+
+        ROT[L_LEG] = tr(new float[] {0, .125f, .25f, 1f, 1.125f},
+                v3(0,0,0), v3(-22.5f,0,0), v3(22.5f,0,0), v3(22.5f,0,0), v3(0,0,0));
+        POS[L_LEG] = tr(new float[] {0, .125f, .25f, 1f, 1.125f},
+                v3(0,0,0), v3(0,2,-3), v3(0,0,-3), v3(0,0,-3), v3(0,0,0));
+    }
+
+    private record Anim(float startAge, boolean rightArm) {}
 
     private static final Map<Integer, Anim> ANIMS = new HashMap<>();
     /** Controle de push/pop da matriz na primeira pessoa (ver HeldItemRendererMixin). */
@@ -43,8 +93,8 @@ public final class ThrowAnimClient {
     private ThrowAnimClient() {}
 
     public static void start(PlayerEntity player, boolean rightArm) {
-        // a animação de soltar começa em t=4 (a pose de carga), sem salto visual
-        ANIMS.put(player.getId(), new Anim(player.age - 4, rightArm));
+        // continua exatamente da pose de carga (0.375s = 7.5 ticks)
+        ANIMS.put(player.getId(), new Anim(player.age - CHARGE_TIME * 20f, rightArm));
     }
 
     public static void clear() {
@@ -55,55 +105,43 @@ public final class ThrowAnimClient {
         return p.isUsingItem() && p.getActiveItem().getItem() instanceof ThrowingDiscItem;
     }
 
-    /** Pose do jogador: animação de soltar, ou a pose de carga enquanto segura o botão. null = nenhuma. */
-    public static float[] sample(PlayerEntity p, float ageProgress) {
-        float[] anim = sample(p.getId(), ageProgress);
-        if (anim != null) return anim;
-        if (!isCharging(p)) return null;
-        float used = p.getActiveItem().getMaxUseTime() - p.getItemUseTimeLeft();
-        float u = Math.max(0f, Math.min(1f, used / 6f));
-        u = u * u * (3f - 2f * u);
-        float[] out = new float[N];
-        for (int j = 0; j < N; j++) out[j] = KEYS[1][j + 1] * u;
-        return out;
-    }
-
     public static boolean isRightArm(PlayerEntity p) {
-        if (ANIMS.containsKey(p.getId())) return isRightArm(p.getId());
+        Anim a = ANIMS.get(p.getId());
+        if (a != null) return a.rightArm();
         if (isCharging(p)) {
             return (p.getActiveHand() == Hand.MAIN_HAND) == (p.getMainArm() == Arm.RIGHT);
         }
         return true;
     }
 
-    public static boolean isRightArm(int entityId) {
-        Anim a = ANIMS.get(entityId);
-        return a == null || a.rightArm();
-    }
-
-    /** @return valores interpolados da pose, ou null se o jogador não está animando. */
-    public static float[] sample(int entityId, float ageProgress) {
-        Anim a = ANIMS.get(entityId);
-        if (a == null) return null;
-        float t = ageProgress - a.startAge();
-        if (t > DURATION) {
-            ANIMS.remove(entityId);
-            return null;
+    /**
+     * Pose atual do jogador (animação de soltar ou pose de carga) ou null.
+     * Compatibilidade: não anima em poses especiais (nadando, elytra, dormindo...) nem em espectador,
+     * para não brigar com o vanilla/outros mods nessas situações.
+     */
+    public static Pose sample(PlayerEntity p, float ageProgress) {
+        Anim a = ANIMS.get(p.getId());
+        float timeSec = -1f;
+        if (a != null) {
+            float ticks = ageProgress - a.startAge();
+            if (ticks > DURATION_TICKS) {
+                ANIMS.remove(p.getId());
+            } else if (ticks >= 0f) {
+                timeSec = ticks / 20f;
+            }
         }
-        if (t < 0) return null;
-
-        int i = 0;
-        while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
-        float[] k0 = KEYS[i];
-        float[] k1 = KEYS[i + 1];
-        float u = (t - k0[0]) / (k1[0] - k0[0]);
-        u = Math.max(0f, Math.min(1f, u));
-        u = u * u * (3f - 2f * u); // smoothstep
-
-        float[] out = new float[N];
-        for (int j = 0; j < N; j++) {
-            out[j] = k0[j + 1] + (k1[j + 1] - k0[j + 1]) * u;
+        if (timeSec < 0f) {
+            if (!isCharging(p)) return null;
+            float used = p.getActiveItem().getMaxUseTime() - p.getItemUseTimeLeft() + (ageProgress - p.age);
+            timeSec = Math.max(0f, Math.min(CHARGE_TIME, used / 20f));
         }
-        return out;
+        if (p.isSpectator() || p.getPose() != EntityPose.STANDING) return null;
+
+        Pose pose = new Pose();
+        for (int b = 0; b < 6; b++) {
+            if (ROT[b] != null) ROT[b].at(timeSec, pose.rot[b]);
+            if (POS[b] != null) POS[b].at(timeSec, pose.pos[b]);
+        }
+        return pose;
     }
 }

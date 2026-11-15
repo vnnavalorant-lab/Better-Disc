@@ -30,7 +30,7 @@ public abstract class HeldItemRendererMixin {
         boolean handIsRight = (hand == Hand.MAIN_HAND) == (player.getMainArm() == Arm.RIGHT);
         float side = handIsRight ? 1f : -1f;
 
-        float[] p = ThrowAnimClient.sample(player, player.age + tickDelta);
+        ThrowAnimClient.Pose p = ThrowAnimClient.sample(player, player.age + tickDelta);
         boolean throwing = p != null && handIsRight == ThrowAnimClient.isRightArm(player);
         boolean blocking = player.isUsingItem() && player.getActiveHand() == hand
                 && item.getItem() instanceof SwordItem;
@@ -40,12 +40,21 @@ public abstract class HeldItemRendererMixin {
         ThrowAnimClient.firstPersonPushed = true;
 
         if (throwing) {
-            // arremesso por cima: mão sobe/recua na carga, chicoteia à frente e desce no follow-through
-            float up = Math.max(0f, Math.min(1f, (-p[1] - 1.5f) / 1.25f));
-            float down = Math.max(0f, Math.min(1f, (1.5f + p[1]) / 0.8f));
-            matrices.translate(0.0f, 0.40f * up - 0.15f * down, 0.30f * up - 0.45f * down);
-            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-50f * up + 30f * down));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * 10f * up));
+            // posição da mão = direção do braço da animação (Euler ZYX do Blockbench) + keyframes de posição
+            float[] r = p.rot[ThrowAnimClient.R_ARM];
+            float[] ps = p.pos[ThrowAnimClient.R_ARM];
+            double rad = Math.PI / 180.0;
+            double sx = Math.sin(r[0] * rad), cx = Math.cos(r[0] * rad);
+            double sy = Math.sin(r[1] * rad), cy = Math.cos(r[1] * rad);
+            double sz = Math.sin(r[2] * rad), cz = Math.cos(r[2] * rad);
+            double dx = -sx * sy * cz + cx * sz;
+            double dy = -sx * sy * sz - cx * cz;
+            double dz = -sx * cy;
+            float k = 0.55f;
+            matrices.translate(
+                    (float) (dx * k) * side + ps[0] / 16f * 2f * side,
+                    (float) ((dy + 1.0) * k) + ps[1] / 16f * 2f,
+                    (float) (dz * k) + ps[2] / 16f * 2f);
         }
 
         if (blocking) {

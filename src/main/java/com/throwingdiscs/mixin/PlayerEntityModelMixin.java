@@ -2,6 +2,7 @@ package com.throwingdiscs.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -14,7 +15,12 @@ import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
-/** Pose dos membros durante o arremesso (terceira pessoa: você e outros jogadores). */
+/**
+ * Pose dos membros durante o arremesso (terceira pessoa: você e outros jogadores).
+ *
+ * Compatibilidade: só injeta em HEAD/TAIL (sem @Overwrite/@Redirect/cancel), só mexe nas peças durante o
+ * arremesso, e devolve os pivots ao valor anterior no próximo frame para não vazar para outras animações.
+ */
 @Mixin(PlayerEntityModel.class)
 public abstract class PlayerEntityModelMixin<T extends LivingEntity> extends BipedEntityModel<T> {
     @Shadow public ModelPart leftSleeve;
@@ -23,8 +29,43 @@ public abstract class PlayerEntityModelMixin<T extends LivingEntity> extends Bip
     @Shadow public ModelPart rightPants;
     @Shadow public ModelPart jacket;
 
+    @Unique private float[] throwingdiscs$saved;
+    @Unique private boolean throwingdiscs$dirty;
+
     private PlayerEntityModelMixin(ModelPart root) {
         super(root);
+    }
+
+    @Unique
+    private ModelPart[] throwingdiscs$parts() {
+        return new ModelPart[] { this.head, this.body, this.rightArm, this.leftArm, this.rightLeg, this.leftLeg };
+    }
+
+    /** Restaura os pivots que alteramos no frame anterior (antes de qualquer outro código rodar). */
+    @Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("HEAD"))
+    private void throwingdiscs$restore(T entity, float limbAngle, float limbDistance, float animationProgress,
+                                       float headYaw, float headPitch, CallbackInfo ci) {
+        if (!throwingdiscs$dirty || throwingdiscs$saved == null) return;
+        ModelPart[] parts = throwingdiscs$parts();
+        for (int i = 0; i < parts.length; i++) {
+            parts[i].pivotX = throwingdiscs$saved[i * 3];
+            parts[i].pivotY = throwingdiscs$saved[i * 3 + 1];
+            parts[i].pivotZ = throwingdiscs$saved[i * 3 + 2];
+        }
+        throwingdiscs$dirty = false;
+    }
+
+    @Unique
+    private static void throwingdiscs$apply(ModelPart part, float[] rot, float[] pos, float m, boolean rotate) {
+        float deg = (float) (Math.PI / 180.0);
+        if (rotate) {
+            part.pitch = -rot[0] * deg;
+            part.yaw = -rot[1] * m * deg;
+            part.roll = rot[2] * m * deg;
+        }
+        part.pivotX -= pos[0] * m;
+        part.pivotY -= pos[1];
+        part.pivotZ += pos[2];
     }
 
     @Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
@@ -32,36 +73,33 @@ public abstract class PlayerEntityModelMixin<T extends LivingEntity> extends Bip
                                           float animationProgress, float headYaw, float headPitch,
                                           CallbackInfo ci) {
         if (!(entity instanceof PlayerEntity player)) return;
-        float[] p = ThrowAnimClient.sample(player, animationProgress);
-        if (p == null) return;
+        ThrowAnimClient.Pose pose = ThrowAnimClient.sample(player, animationProgress);
+        if (pose == null) return;
 
         boolean right = ThrowAnimClient.isRightArm(player);
-        float sT = right ? 1f : -1f; // lado do braço que arremessa
-        float sO = -sT;
-        float deg = (float) (Math.PI / 180.0);
+        float m = right ? 1f : -1f;
 
-        // o corpo inteiro gira (PlayerEntityRendererMixin); a cabeça compensa para continuar olhando para frente
-        this.head.yaw -= p[0] * sT * deg;
+        ModelPart[] parts = throwingdiscs$parts();
+        if (throwingdiscs$saved == null) throwingdiscs$saved = new float[parts.length * 3];
+        for (int i = 0; i < parts.length; i++) {
+            throwingdiscs$saved[i * 3] = parts[i].pivotX;
+            throwingdiscs$saved[i * 3 + 1] = parts[i].pivotY;
+            throwingdiscs$saved[i * 3 + 2] = parts[i].pivotZ;
+        }
+        throwingdiscs$dirty = true;
 
-        ModelPart tArm = right ? this.rightArm : this.leftArm;
-        ModelPart oArm = right ? this.leftArm : this.rightArm;
-        ModelPart tLeg = right ? this.rightLeg : this.leftLeg;
-        ModelPart oLeg = right ? this.leftLeg : this.rightLeg;
+        // canhoto: troca os lados (dados do braço/perna direita vão para a esquerda) e espelha
+        ModelPart rArm = right ? this.rightArm : this.leftArm;
+        ModelPart lArm = right ? this.leftArm : this.rightArm;
+        ModelPart rLeg = right ? this.rightLeg : this.leftLeg;
+        ModelPart lLeg = right ? this.leftLeg : this.rightLeg;
 
-        tArm.pitch = p[1];
-        tArm.yaw = sT * p[2];
-        tArm.roll = sT * p[3];
-
-        oArm.pitch = p[4];
-        oArm.yaw = sO * p[5];
-        oArm.roll = sO * p[6];
-
-        tLeg.pitch = p[7];
-        tLeg.yaw = 0f;
-        tLeg.roll = sT * p[9];
-        oLeg.pitch = p[8];
-        oLeg.yaw = 0f;
-        oLeg.roll = sO * p[9];
+        throwingdiscs$apply(this.head, pose.rot[ThrowAnimClient.HEAD], pose.pos[ThrowAnimClient.HEAD], m, false); // cabeça segue o olhar
+        throwingdiscs$apply(this.body, pose.rot[ThrowAnimClient.BODY], pose.pos[ThrowAnimClient.BODY], m, true);
+        throwingdiscs$apply(rArm, pose.rot[ThrowAnimClient.R_ARM], pose.pos[ThrowAnimClient.R_ARM], m, true);
+        throwingdiscs$apply(lArm, pose.rot[ThrowAnimClient.L_ARM], pose.pos[ThrowAnimClient.L_ARM], m, true);
+        throwingdiscs$apply(rLeg, pose.rot[ThrowAnimClient.R_LEG], pose.pos[ThrowAnimClient.R_LEG], m, true);
+        throwingdiscs$apply(lLeg, pose.rot[ThrowAnimClient.L_LEG], pose.pos[ThrowAnimClient.L_LEG], m, true);
 
         this.hat.copyTransform(this.head);
         this.jacket.copyTransform(this.body);

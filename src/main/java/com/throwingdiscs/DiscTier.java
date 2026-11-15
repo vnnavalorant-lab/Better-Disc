@@ -1,10 +1,10 @@
 package com.throwingdiscs;
 
 public enum DiscTier {
-    IRON("iron", 6.0f, 1.30, 0xDADADA),
-    GOLD("gold", 5.0f, 1.60, 0xFFD83C),
-    DIAMOND("diamond", 8.0f, 1.40, 0x3BEFD0),
-    NETHERITE("netherite", 10.0f, 1.50, 0x6B4E71);
+    IRON("iron", 6.0f, 0.95, 0xDADADA),
+    GOLD("gold", 5.0f, 1.15, 0xFFD83C),
+    DIAMOND("diamond", 8.0f, 1.00, 0x3BEFD0),
+    NETHERITE("netherite", 10.0f, 1.10, 0x6B4E71);
 
     public final String id;
     public final float damage;

@@ -27,3 +27,7 @@ Se o disco acerta alguém defendendo: prende na lâmina por 3s soltando faíscas
 Segure o botão direito para carregar (tempo do arco, 20 ticks = força total; mínimo como o arco) e solte para lançar.
 Carga parcial lança mais devagar. O disco voando tem o mesmo tamanho do item em 1ª pessoa.
 O dono também pode se defender com espada do próprio disco rebatido.
+
+## Quebra de blocos
+O disco em ida quebra vidros (blocos e painéis), vasos de planta e vasos decorados e segue em frente sem ricochetear
+(respeita proteção de spawn; não quebra inquebráveis nem grades de ferro).

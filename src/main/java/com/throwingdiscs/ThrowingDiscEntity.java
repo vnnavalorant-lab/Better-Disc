@@ -5,7 +5,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.block.AbstractGlassBlock;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.DecoratedPotBlock;
+import net.minecraft.block.FlowerPotBlock;
+import net.minecraft.block.PaneBlock;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -52,7 +58,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     public static final int OUTBOUND_TICKS = 600;      // 30 segundos
     private static final double RETURN_SPEED = 2.2;     // blocos/tick na volta
     private static final int MAX_PATH = 2048;           // limite de ricochetes guardados
-    private static final double MAX_LEG = 96.0;         // se voar longe demais sem bater, volta
+    private static final double MAX_RANGE = 22.0;       // distância máxima do ponto de lançamento; passou, volta
 
     private boolean returning = false;
     private boolean refund = true;       // devolve o item ao dono (false no criativo)
@@ -167,7 +173,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         if (!returning) {
             boolean outOfWorld = getY() < world.getBottomY() - 8 || getY() > world.getTopY() + 64;
             boolean unloaded = !world.isChunkLoaded(BlockPos.ofFloored(getPos().add(getVelocity())));
-            boolean farFromLast = path.get(path.size() - 1).squaredDistanceTo(getPos()) > MAX_LEG * MAX_LEG;
+            boolean farFromLast = path.get(0).squaredDistanceTo(getPos()) > MAX_RANGE * MAX_RANGE;
             if (flightTicks >= OUTBOUND_TICKS || path.size() >= MAX_PATH || outOfWorld || unloaded || farFromLast) {
                 beginReturn();
             }
@@ -207,6 +213,18 @@ public class ThrowingDiscEntity extends ProjectileEntity {
             return;
         }
 
+        // vidros e vasos quebram e o disco segue em frente (sem ricochete)
+        BlockPos hitPos = hit.getBlockPos();
+        BlockState hitState = world.getBlockState(hitPos);
+        if (isBreakable(world, hitPos, hitState, owner)) {
+            world.breakBlock(hitPos, true, this);
+            Vec3d hp = hit.getPos();
+            world.spawnParticles(ParticleTypes.CRIT, hp.x, hp.y, hp.z, 8, 0.15, 0.15, 0.15, 0.3);
+            setPosition(hp.add(vel.normalize().multiply(0.25)));
+            setVelocity(vel);
+            return;
+        }
+
         Direction side = hit.getSide();
         Vec3d n = new Vec3d(side.getOffsetX(), side.getOffsetY(), side.getOffsetZ());
         Vec3d reflected = vel.subtract(n.multiply(2.0 * vel.dotProduct(n)));
@@ -219,6 +237,18 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         path.add(bouncePos);
 
         onBounce(world, hit, bouncePos);
+    }
+
+    /** Vidros (blocos e painéis), vasos de planta e vasos decorados. */
+    private boolean isBreakable(ServerWorld world, BlockPos pos, BlockState state, Entity owner) {
+        boolean glass = state.isIn(BlockTags.IMPERMEABLE)
+                || state.getBlock() instanceof AbstractGlassBlock
+                || (state.getBlock() instanceof PaneBlock && !state.isOf(Blocks.IRON_BARS));
+        boolean vase = state.getBlock() instanceof FlowerPotBlock || state.getBlock() instanceof DecoratedPotBlock;
+        if (!glass && !vase) return false;
+        if (state.getHardness(world, pos) < 0) return false;                 // inquebrável
+        if (owner instanceof PlayerEntity p && !world.canPlayerModifyAt(p, pos)) return false; // proteção de spawn etc.
+        return true;
     }
 
     /** Partículas + som ao colidir com blocos. */
