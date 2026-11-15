@@ -9,6 +9,7 @@ public class ThrowingDiscsMod implements ModInitializer {
     public void onInitialize() {
         ModItems.init();
         ModEntities.init();
+        ModParticles.init();
         PendingThrows.init();
     }
 }

@@ -1,6 +1,7 @@
 package com.throwingdiscs.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -20,6 +21,11 @@ import net.minecraft.util.math.RotationAxis;
 /** Animação de arremesso em primeira pessoa: a mão/disco faz o movimento lateral cruzando a tela. */
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
+    /** Desenha o braço do jogador em 1ª pessoa (o mesmo usado quando a mão está vazia). */
+    @Shadow
+    protected abstract void renderArmHoldingItem(MatrixStack matrices, VertexConsumerProvider vertexConsumers,
+                                                 int light, float equipProgress, float swingProgress, Arm arm);
+
     @Inject(method = "renderFirstPersonItem", at = @At("HEAD"))
     private void throwingdiscs$head(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand,
                                     float swingProgress, ItemStack item, float equipProgress,
@@ -55,6 +61,14 @@ public abstract class HeldItemRendererMixin {
                     (float) (dx * k) * side + ps[0] / 16f * 2f * side,
                     (float) ((dy + 1.0) * k) + ps[1] / 16f * 2f,
                     (float) (dz * k) + ps[2] / 16f * 2f);
+        }
+
+        if (throwing) {
+            // mostra o braço segurando o disco (o Minecraft não desenha o braço quando há item na mão)
+            matrices.push();
+            this.renderArmHoldingItem(matrices, vertexConsumers, light, equipProgress, 0.0f,
+                    handIsRight ? Arm.RIGHT : Arm.LEFT);
+            matrices.pop();
         }
 
         if (blocking) {

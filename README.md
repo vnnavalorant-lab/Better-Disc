@@ -31,3 +31,11 @@ O dono também pode se defender com espada do próprio disco rebatido.
 ## Quebra de blocos
 O disco em ida quebra vidros (blocos e painéis), vasos de planta e vasos decorados e segue em frente sem ricochetear
 (respeita proteção de spawn; não quebra inquebráveis nem grades de ferro).
+
+## Disco na mão (3ª pessoa)
+A pose do disco na mão fica em `assets/throwingdiscs/models/item/*_throwing_disc.json` (`display.thirdperson_*`):
+`rotation` [90,0,0] deixa o disco deitado na palma; ajuste `translation`/`rotation` se precisar.
+
+## Partículas do vento
+Enquanto o disco voa: riscos brancos translúcidos (`wind_streak`) nascem na borda e ficam para trás formando hélices,
+e arcos de vento (`wind_ring`) giram no plano do disco. Texturas em `assets/throwingdiscs/textures/particle/` (podem ser trocadas).

@@ -137,26 +137,37 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         spawnSpinParticles();
     }
 
-    /** Partículas constantes de giro: anel de poeira colorida girando ao redor do disco. */
+    /**
+     * Partículas constantes enquanto voa: o disco "corta o vento".
+     * Riscos brancos translúcidos nascem na borda do disco e ficam para trás formando duas hélices,
+     * e arcos de vento deitados giram ao redor dele. Nada colorido.
+     */
     private void spawnSpinParticles() {
         Vec3d prev = new Vec3d(prevX, prevY, prevZ);
         Vec3d cur = getPos();
-        DustParticleEffect dust = new DustParticleEffect(Vec3d.unpackRgb(getTier().color).toVector3f(), 0.9f);
-        int steps = 4;
+        Vec3d v = getVelocity();
+        if (v.lengthSquared() < 1.0E-4) v = cur.subtract(prev);
+        Vec3d dir = v.lengthSquared() > 1.0E-6 ? v.normalize() : new Vec3d(0, 0, 1);
+
+        int steps = 3;
         for (int i = 0; i < steps; i++) {
             double t = (i + 1) / (double) steps;
             Vec3d p = prev.lerp(cur, t);
-            double angle = (spinTicks * steps + i) * 0.55;
+            double angle = (spinTicks * steps + i) * 0.75;
             for (int k = 0; k < 2; k++) {
                 double a = angle + k * Math.PI;
-                getWorld().addParticle(dust,
-                        p.x + Math.cos(a) * 0.5, p.y + 0.08, p.z + Math.sin(a) * 0.5,
-                        0, 0, 0);
+                double ca = Math.cos(a), sa = Math.sin(a);
+                // nasce na borda do disco (plano horizontal)
+                double ox = ca * 0.34, oz = sa * 0.34;
+                // fica para trás do movimento, com uma leve deriva tangencial (espiral)
+                double vx = -dir.x * 0.16 - sa * 0.03;
+                double vy = -dir.y * 0.16;
+                double vz = -dir.z * 0.16 + ca * 0.03;
+                getWorld().addParticle(ModParticles.WIND_STREAK, p.x + ox, p.y + 0.04, p.z + oz, vx, vy, vz);
             }
         }
-        if (spinTicks % 2 == 0) {
-            getWorld().addParticle(ParticleTypes.CRIT, cur.x, cur.y + 0.05, cur.z, 0, 0, 0);
-        }
+        // arcos de vento girando no plano do disco
+        getWorld().addParticle(ModParticles.WIND_RING, cur.x, cur.y + 0.03, cur.z, spinTicks * 0.9, 0, 0);
     }
 
     private void serverTick(ServerWorld world) {

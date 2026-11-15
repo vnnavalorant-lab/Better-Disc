@@ -1,10 +1,12 @@
 package com.throwingdiscs.client;
 
 import com.throwingdiscs.ModEntities;
+import com.throwingdiscs.ModParticles;
 import com.throwingdiscs.ThrowAnimNetworking;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.entity.Entity;
@@ -14,6 +16,9 @@ public class ThrowingDiscsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         EntityRendererRegistry.register(ModEntities.THROWING_DISC, ThrowingDiscRenderer::new);
+
+        ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_STREAK, WindStreakParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_RING, WindRingParticle.Factory::new);
 
         ClientPlayNetworking.registerGlobalReceiver(ThrowAnimNetworking.ID, (client, handler, buf, sender) -> {
             int id = buf.readInt();
