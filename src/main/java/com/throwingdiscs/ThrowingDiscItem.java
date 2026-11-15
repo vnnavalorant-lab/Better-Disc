@@ -5,6 +5,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BowItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.stat.Stats;
 import net.minecraft.util.Arm;
@@ -24,6 +25,17 @@ public class ThrowingDiscItem extends Item {
 
     public DiscTier getTier() {
         return tier;
+    }
+
+    /** Reparo na bigorna com o material do disco (ferro, ouro, diamante ou netherite). */
+    @Override
+    public boolean canRepair(ItemStack stack, ItemStack ingredient) {
+        return switch (tier) {
+            case IRON -> ingredient.isOf(Items.IRON_INGOT);
+            case GOLD -> ingredient.isOf(Items.GOLD_INGOT);
+            case DIAMOND -> ingredient.isOf(Items.DIAMOND);
+            case NETHERITE -> ingredient.isOf(Items.NETHERITE_INGOT);
+        };
     }
 
     @Override

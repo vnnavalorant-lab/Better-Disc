@@ -59,6 +59,7 @@ public final class PendingThrows {
         ServerWorld world = player.getServerWorld();
         boolean creative = player.getAbilities().creativeMode;
         ItemStack single = held.copyWithCount(1);
+        if (!creative && single.isDamageable()) single.setDamage(single.getDamage() + 1);   // cada lançamento gasta 1
 
         ThrowingDiscEntity entity = new ThrowingDiscEntity(world, player, single, !creative);
         Vec3d look = player.getRotationVec(1.0f);

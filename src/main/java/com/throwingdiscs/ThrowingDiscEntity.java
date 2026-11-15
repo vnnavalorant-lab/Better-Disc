@@ -157,7 +157,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
 
     /** Pode ser agarrado por um lobo: voando (ida/volta), sem estar preso no mel nem num clash de espada. */
     public boolean isCatchable() {
-        return isAlive() && getStuckSide() < 0 && getClashTargetId() < 0 && clashTicks == 0;
+        return isAlive() && getStuckSide() < 0 && getClashTargetId() < 0 && clashTicks == 0 && !isWornOut();
     }
 
     public int getClashTargetId() {
@@ -498,7 +498,13 @@ public class ThrowingDiscEntity extends ProjectileEntity {
                 || state.getBlock() instanceof StemBlock
                 || state.getBlock() instanceof AttachedStemBlock
                 || state.getBlock() instanceof NetherWartBlock
-                || state.getBlock() instanceof SweetBerryBushBlock;
+                || state.getBlock() instanceof SweetBerryBushBlock
+                || state.isOf(Blocks.BAMBOO_SAPLING);
+    }
+
+    /** Cana-de-açúcar e bambu: o disco corta acima da base (que rebrota), ou qualquer ponto em que ele passe de fato. */
+    private static boolean isTallPlant(BlockState state) {
+        return state.isOf(Blocks.SUGAR_CANE) || state.isOf(Blocks.BAMBOO);
     }
 
     /**
@@ -513,7 +519,13 @@ public class ThrowingDiscEntity extends ProjectileEntity {
             BlockPos min = BlockPos.ofFloored(p.x - CROP_RADIUS, p.y - CROP_REACH_BELOW, p.z - CROP_RADIUS);
             BlockPos max = BlockPos.ofFloored(p.x + CROP_RADIUS, p.y + CROP_REACH_ABOVE, p.z + CROP_RADIUS);
             for (BlockPos bp : BlockPos.iterate(min, max)) {
-                if (!isCrop(world.getBlockState(bp))) continue;
+                BlockState st = world.getBlockState(bp);
+                boolean tall = isTallPlant(st);
+                if (!tall && !isCrop(st)) continue;
+                if (tall) {   // varredura de baixo: só corta se houver o mesmo bloco abaixo (deixa a base) ou se o disco passar pela própria célula
+                    boolean inCell = p.y >= bp.getY() - 0.1 && p.y <= bp.getY() + 1.1;
+                    if (!inCell && !world.getBlockState(bp.down()).isOf(st.getBlock())) continue;
+                }
                 if (owner instanceof PlayerEntity pl && !world.canPlayerModifyAt(pl, bp)) continue;
                 world.breakBlock(bp.toImmutable(), true, this);
             }
@@ -549,7 +561,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         }
         PlayerEntity player = world.getClosestPlayer(this, 1.6);
         if (player != null && !player.isSpectator()) {
-            if (refund) {
+            if (returnsItem(world)) {
                 ItemStack stack = getStack().copy();
                 if (!player.getInventory().insertStack(stack)) player.dropItem(stack, false);
             }
@@ -559,13 +571,14 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         }
     }
 
-    /** Vidros (blocos e painéis), vasos de planta e vasos decorados. */
+    /** Vidros (blocos e painéis), vasos de planta, vasos decorados e bambu. */
     private boolean isBreakable(ServerWorld world, BlockPos pos, BlockState state, Entity owner) {
         boolean glass = state.isIn(BlockTags.IMPERMEABLE)
                 || state.getBlock() instanceof AbstractGlassBlock
                 || (state.getBlock() instanceof PaneBlock && !state.isOf(Blocks.IRON_BARS));
         boolean vase = state.getBlock() instanceof FlowerPotBlock || state.getBlock() instanceof DecoratedPotBlock;
-        if (!glass && !vase) return false;
+        boolean bamboo = state.isOf(Blocks.BAMBOO) || state.isOf(Blocks.BAMBOO_SAPLING);   // tem colisão: sem isto o disco ricochetearia
+        if (!glass && !vase && !bamboo) return false;
         if (state.getHardness(world, pos) < 0) return false;                 // inquebrável
         if (owner instanceof PlayerEntity p && !world.canPlayerModifyAt(p, pos)) return false; // proteção de spawn etc.
         return true;
@@ -648,7 +661,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
             world.spawnParticles(ParticleTypes.CRIT, victim.getX(), victim.getBodyY(0.5), victim.getZ(),
                     12, 0.25, 0.3, 0.25, 0.3);
         }
-        if (refund) {
+        if (returnsItem(world)) {
             ItemStack stack = getStack().copy();
             if (owner instanceof PlayerEntity player) {
                 if (!player.getInventory().insertStack(stack)) {
@@ -664,8 +677,29 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         discard();
     }
 
+    /**
+     * Cada lançamento gasta 1 de durabilidade (PendingThrows / DiscDispenser). Se o disco chegou ao fim da vida,
+     * esta foi a última viagem: ao terminar ele quebra em vez de voltar como item.
+     */
+    public boolean isWornOut() {
+        ItemStack s = getStack();
+        return s.isDamageable() && s.getDamage() >= s.getMaxDamage();
+    }
+
+    /** @return true se o item deve ser devolvido; se o disco está gasto, quebra (som + lascas) e retorna false. */
+    private boolean returnsItem(ServerWorld world) {
+        if (!refund) return false;
+        if (!isWornOut()) return true;
+        world.spawnParticles(new ItemStackParticleEffect(ParticleTypes.ITEM, getStack()),
+                getX(), getY(), getZ(), 16, 0.15, 0.15, 0.15, 0.12);
+        world.spawnParticles(ParticleTypes.CRIT, getX(), getY(), getZ(), 10, 0.2, 0.2, 0.2, 0.3);
+        world.playSound(null, getX(), getY(), getZ(), SoundEvents.ENTITY_ITEM_BREAK,
+                SoundCategory.PLAYERS, 0.9f, 1.0f);
+        return false;
+    }
+
     private void dropAsItem(ServerWorld world) {
-        if (refund) {
+        if (returnsItem(world)) {
             ItemEntity item = new ItemEntity(world, getX(), getY(), getZ(), getStack().copy());
             item.setVelocity(Vec3d.ZERO);
             world.spawnEntity(item);

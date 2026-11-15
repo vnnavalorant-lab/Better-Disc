@@ -9,7 +9,7 @@ Itens: iron_/gold_/diamond_/netherite_throwing_disc (botão direito para arremes
 
 ## Compilar
 Requer JDK 17. Com Gradle 8.6+ instalado: `gradle build` (ou `gradle wrapper --gradle-version 8.6` e depois `./gradlew build`).
-O .jar sai em build/libs/throwing-discs-1.0.2.jar. Requer Fabric API.
+O .jar sai em build/libs/throwing-discs-1.0.3.jar. Requer Fabric API.
 
 ## Ajustes rápidos
 - Pose da animação: `ThrowAnimClient.KEYS` (keyframes), duração `DURATION`, soltura `ThrowAnimNetworking.RELEASE_DELAY`.
@@ -86,3 +86,14 @@ sempre visível). O ponto da batida entra no caminho dos dois, então a volta co
 (`disc_flash`), 18 faíscas que saem pelo plano do choque, esfriando de branco para laranja e vermelho, caindo e quicando
 (`disc_spark`), e som metálico. Ajustes em `ThrowingDiscEntity`: `DISC_CLASH_DIST` (distância do choque), `DISC_CLASH_COOLDOWN`,
 e a quantidade/velocidade das faíscas em `discSparks`. Discos voltando, presos no mel ou numa espada não colidem.
+
+## Bambu e cana-de-açúcar
+O disco quebra bambu (tem colisão: o disco corta e segue em frente, sem ricochetear) e cana-de-açúcar (e broto de bambu), com drops.
+Pela varredura de plantações ele corta acima da base, que rebrota; se o disco passar pela própria célula do bloco, o bloco também quebra.
+Ao quebrar um segmento, o resto do talo acima cai sozinho (física vanilla), com drops.
+
+## Durabilidade
+Cada lançamento (jogador ou ejetor) gasta 1 de durabilidade do disco (`DiscTier.durability`: ferro 120, ouro 60, diamante 320,
+netherite 600; no criativo não gasta). O disco que esgota a durabilidade faz a última viagem e, ao terminar (pego, largado, grudado no
+mel), quebra com som e lascas em vez de voltar como item; lobos não pegam um disco nessa última viagem. Reparo na bigorna com
+o material do disco (ferro/ouro/diamante/netherite). Itens com durabilidade não empilham.

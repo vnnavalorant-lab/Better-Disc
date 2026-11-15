@@ -18,6 +18,7 @@ public final class DiscDispenser {
         Position out = DispenserBlock.getOutputLocation(pointer);
         Vec3d pos = new Vec3d(out.getX(), out.getY(), out.getZ());
         ItemStack one = stack.split(1);
+        if (one.isDamageable()) one.setDamage(one.getDamage() + 1);   // cada lançamento gasta 1 de durabilidade
         world.spawnEntity(new ThrowingDiscEntity(world, one, pos,
                 new Vec3d(dir.getOffsetX(), dir.getOffsetY(), dir.getOffsetZ())));
         return stack;

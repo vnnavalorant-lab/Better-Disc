@@ -16,7 +16,7 @@ public final class ModItems {
     private ModItems() {}
 
     private static Item register(DiscTier tier) {
-        Item.Settings settings = new Item.Settings().maxCount(16);
+        Item.Settings settings = new Item.Settings().maxDamage(tier.durability);   // durabilidade (itens com durabilidade não empilham)
         if (tier == DiscTier.NETHERITE) settings.fireproof();
         return Registry.register(Registries.ITEM,
                 new Identifier(ThrowingDiscsMod.MOD_ID, tier.itemName()),
