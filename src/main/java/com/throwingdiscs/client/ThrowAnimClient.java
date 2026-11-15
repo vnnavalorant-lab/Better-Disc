@@ -3,7 +3,11 @@ package com.throwingdiscs.client;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.throwingdiscs.ThrowingDiscItem;
+
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Arm;
+import net.minecraft.util.Hand;
 
 /**
  * Animação de arremesso (baseada no vídeo): wind-up girando o corpo, varredura lateral,
@@ -38,11 +42,37 @@ public final class ThrowAnimClient {
     private ThrowAnimClient() {}
 
     public static void start(PlayerEntity player, boolean rightArm) {
-        ANIMS.put(player.getId(), new Anim(player.age, rightArm));
+        // a animação de soltar começa em t=4 (a pose de carga), sem salto visual
+        ANIMS.put(player.getId(), new Anim(player.age - 4, rightArm));
     }
 
     public static void clear() {
         ANIMS.clear();
+    }
+
+    private static boolean isCharging(PlayerEntity p) {
+        return p.isUsingItem() && p.getActiveItem().getItem() instanceof ThrowingDiscItem;
+    }
+
+    /** Pose do jogador: animação de soltar, ou a pose de carga enquanto segura o botão. null = nenhuma. */
+    public static float[] sample(PlayerEntity p, float ageProgress) {
+        float[] anim = sample(p.getId(), ageProgress);
+        if (anim != null) return anim;
+        if (!isCharging(p)) return null;
+        float used = p.getActiveItem().getMaxUseTime() - p.getItemUseTimeLeft();
+        float u = Math.max(0f, Math.min(1f, used / 6f));
+        u = u * u * (3f - 2f * u);
+        float[] out = new float[N];
+        for (int j = 0; j < N; j++) out[j] = KEYS[1][j + 1] * u;
+        return out;
+    }
+
+    public static boolean isRightArm(PlayerEntity p) {
+        if (ANIMS.containsKey(p.getId())) return isRightArm(p.getId());
+        if (isCharging(p)) {
+            return (p.getActiveHand() == Hand.MAIN_HAND) == (p.getMainArm() == Arm.RIGHT);
+        }
+        return true;
     }
 
     public static boolean isRightArm(int entityId) {

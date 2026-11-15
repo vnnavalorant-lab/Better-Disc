@@ -31,7 +31,7 @@ public class ThrowingDiscRenderer extends EntityRenderer<ThrowingDiscEntity> {
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees((entity.getSpinTicks() + tickDelta) * 55.0f));
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90.0f));
         matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(12.0f));
-        matrices.scale(1.8f, 1.8f, 1.8f);
+        matrices.scale(1.36f, 1.36f, 1.36f); // FIXED(0.5) * 1.36 = 0.68 = escala do item em 1ª pessoa
         this.itemRenderer.renderItem(entity.getStack(), ModelTransformationMode.FIXED, light,
                 OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, entity.getWorld(), entity.getId());
         matrices.pop();

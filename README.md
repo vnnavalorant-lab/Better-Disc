@@ -22,3 +22,8 @@ e a defesa cessa sozinha quando a ameaça some.
 Se o disco acerta alguém defendendo: prende na lâmina por 3s soltando faíscas; depois
 - espada de madeira ou com "copper" no id (de outro mod): quebra, o defensor toma o dano e o disco volta ao dono sem machucá-lo;
 - outras espadas: o disco é rebatido, volta refazendo os ricochetes e causa dano em quem o lançou.
+
+## Arremesso
+Segure o botão direito para carregar (tempo do arco, 20 ticks = força total; mínimo como o arco) e solte para lançar.
+Carga parcial lança mais devagar. O disco voando tem o mesmo tamanho do item em 1ª pessoa.
+O dono também pode se defender com espada do próprio disco rebatido.

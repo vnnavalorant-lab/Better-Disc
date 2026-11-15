@@ -20,8 +20,10 @@ public final class PendingThrows {
         final UUID player;
         final Hand hand;
         int ticks;
+        final float power;
 
-        Pending(UUID player, Hand hand, int ticks) {
+        Pending(UUID player, Hand hand, int ticks, float power) {
+            this.power = power;
             this.player = player;
             this.hand = hand;
             this.ticks = ticks;
@@ -41,16 +43,16 @@ public final class PendingThrows {
                 it.remove();
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(p.player);
                 if (player == null || !player.isAlive()) continue;
-                release(player, p.hand);
+                release(player, p.hand, p.power);
             }
         });
     }
 
-    public static void add(ServerPlayerEntity player, Hand hand, int delay) {
-        LIST.add(new Pending(player.getUuid(), hand, delay));
+    public static void add(ServerPlayerEntity player, Hand hand, int delay, float power) {
+        LIST.add(new Pending(player.getUuid(), hand, delay, power));
     }
 
-    private static void release(ServerPlayerEntity player, Hand hand) {
+    private static void release(ServerPlayerEntity player, Hand hand, float power) {
         ItemStack held = player.getStackInHand(hand);
         if (!(held.getItem() instanceof ThrowingDiscItem disc)) return;
 
@@ -61,7 +63,7 @@ public final class PendingThrows {
         ThrowingDiscEntity entity = new ThrowingDiscEntity(world, player, single, !creative);
         Vec3d look = player.getRotationVec(1.0f);
         entity.setPosition(player.getEyePos().add(0, -0.25, 0).add(look.multiply(0.4)));
-        entity.setVelocity(look.multiply(disc.getTier().speed));
+        entity.setVelocity(look.multiply(disc.getTier().speed * (0.45 + 0.55 * power)));
         world.spawnEntity(entity);
 
         if (!creative) held.decrement(1);

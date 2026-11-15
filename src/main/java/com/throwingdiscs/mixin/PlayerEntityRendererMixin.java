@@ -20,9 +20,9 @@ public abstract class PlayerEntityRendererMixin {
     private void throwingdiscs$twist(AbstractClientPlayerEntity player, MatrixStack matrices,
                                      float animationProgress, float bodyYaw, float tickDelta,
                                      CallbackInfo ci) {
-        float[] p = ThrowAnimClient.sample(player.getId(), animationProgress);
+        float[] p = ThrowAnimClient.sample(player, animationProgress);
         if (p == null) return;
-        float s = ThrowAnimClient.isRightArm(player.getId()) ? 1f : -1f;
+        float s = ThrowAnimClient.isRightArm(player) ? 1f : -1f;
         // + = virar para a direita (equivale a somar ao bodyYaw)
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-p[0] * s));
     }

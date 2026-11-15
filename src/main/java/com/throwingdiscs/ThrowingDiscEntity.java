@@ -68,6 +68,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     private UUID clashTarget = null;
     private UUID parrier = null;
     private boolean parried = false;                    // cada disco só sofre um clash
+    private boolean ownerClashed = false;              // clash com a espada do próprio dono (1x)
     private boolean hostileReturn = false;              // volta machucando quem lançou
 
     public ThrowingDiscEntity(EntityType<? extends ThrowingDiscEntity> type, World world) {
@@ -99,7 +100,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     /** Há algum disco de outro jogador por perto? Só então as espadas podem "defender" (animação 1.8). */
     public static boolean hasThreat(World world, LivingEntity user) {
         return !world.getEntitiesByClass(ThrowingDiscEntity.class,
-                user.getBoundingBox().expand(16.0), d -> d.getOwner() != user).isEmpty();
+                user.getBoundingBox().expand(16.0), d -> true).isEmpty();
     }
 
     public DiscTier getTier() {
@@ -261,6 +262,13 @@ public class ThrowingDiscEntity extends ProjectileEntity {
                 remaining -= dist;
                 if (toOwner) {
                     setPosition(pos);
+                    // o dono também pode se defender do próprio disco rebatido com a espada
+                    if (hostileReturn && !ownerClashed && owner instanceof LivingEntity le
+                            && le.isUsingItem() && le.getActiveItem().getItem() instanceof SwordItem) {
+                        ownerClashed = true;
+                        startClash(world, le);
+                        return true;
+                    }
                     pickUp(world, owner);
                     return false;
                 }
@@ -390,8 +398,13 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     private void endClash(boolean hostile) {
         clashTicks = 0;
         hostileReturn = hostile;
-        path.add(getPos());
-        beginReturn();
+        if (ownerClashed) {          // clash com o dono: segue direto para ele, sem refazer o trajeto
+            beginReturn();
+            returnIdx = 0;
+        } else {
+            path.add(getPos());
+            beginReturn();
+        }
     }
 
     /** Passados os 3s: espada fraca quebra e fere quem defendeu; espada boa rebate o disco contra quem lançou. */
@@ -420,7 +433,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
             sword.damage(1, target, t -> t.sendToolBreakStatus(hand));
             world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ITEM_SHIELD_BLOCK,
                     SoundCategory.PLAYERS, 1.0f, 1.2f);
-            endClash(true);               // rebatido: volta contra quem lançou
+            endClash(!ownerClashed);      // rebatido: volta contra quem lançou (se foi o próprio dono, o disco é só barrado)
         }
     }
 
@@ -436,6 +449,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         nbt.putInt("ReturnIdx", returnIdx);
         nbt.putInt("ClashTicks", clashTicks);
         nbt.putBoolean("Parried", parried);
+        nbt.putBoolean("OwnerClashed", ownerClashed);
         nbt.putBoolean("Hostile", hostileReturn);
         if (clashTarget != null) nbt.putUuid("ClashTarget", clashTarget);
         if (parrier != null) nbt.putUuid("Parrier", parrier);
@@ -460,6 +474,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         returnIdx = nbt.getInt("ReturnIdx");
         clashTicks = nbt.getInt("ClashTicks");
         parried = nbt.getBoolean("Parried");
+        ownerClashed = nbt.getBoolean("OwnerClashed");
         hostileReturn = nbt.getBoolean("Hostile");
         clashTarget = nbt.containsUuid("ClashTarget") ? nbt.getUuid("ClashTarget") : null;
         parrier = nbt.containsUuid("Parrier") ? nbt.getUuid("Parrier") : null;

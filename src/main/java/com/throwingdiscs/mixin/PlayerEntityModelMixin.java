@@ -31,11 +31,11 @@ public abstract class PlayerEntityModelMixin<T extends LivingEntity> extends Bip
     private void throwingdiscs$applyThrow(T entity, float limbAngle, float limbDistance,
                                           float animationProgress, float headYaw, float headPitch,
                                           CallbackInfo ci) {
-        if (!(entity instanceof PlayerEntity)) return;
-        float[] p = ThrowAnimClient.sample(entity.getId(), animationProgress);
+        if (!(entity instanceof PlayerEntity player)) return;
+        float[] p = ThrowAnimClient.sample(player, animationProgress);
         if (p == null) return;
 
-        boolean right = ThrowAnimClient.isRightArm(entity.getId());
+        boolean right = ThrowAnimClient.isRightArm(player);
         float sT = right ? 1f : -1f; // lado do braço que arremessa
         float sO = -sT;
         float deg = (float) (Math.PI / 180.0);

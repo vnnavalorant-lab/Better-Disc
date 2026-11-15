@@ -9,8 +9,8 @@ import net.minecraft.util.Identifier;
 
 public final class ThrowAnimNetworking {
     public static final Identifier ID = new Identifier(ThrowingDiscsMod.MOD_ID, "throw_anim");
-    /** Ticks entre o início da animação e a soltura do disco. */
-    public static final int RELEASE_DELAY = 7;
+    /** Ticks entre o fim do carregamento e a soltura (a animação de soltar começa já na pose de carga, em t=4). */
+    public static final int RELEASE_DELAY = 3;
 
     private ThrowAnimNetworking() {}
 

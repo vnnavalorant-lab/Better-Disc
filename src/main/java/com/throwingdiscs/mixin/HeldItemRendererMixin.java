@@ -30,8 +30,8 @@ public abstract class HeldItemRendererMixin {
         boolean handIsRight = (hand == Hand.MAIN_HAND) == (player.getMainArm() == Arm.RIGHT);
         float side = handIsRight ? 1f : -1f;
 
-        float[] p = ThrowAnimClient.sample(player.getId(), player.age + tickDelta);
-        boolean throwing = p != null && handIsRight == ThrowAnimClient.isRightArm(player.getId());
+        float[] p = ThrowAnimClient.sample(player, player.age + tickDelta);
+        boolean throwing = p != null && handIsRight == ThrowAnimClient.isRightArm(player);
         boolean blocking = player.isUsingItem() && player.getActiveHand() == hand
                 && item.getItem() instanceof SwordItem;
         if (!throwing && !blocking) return;
