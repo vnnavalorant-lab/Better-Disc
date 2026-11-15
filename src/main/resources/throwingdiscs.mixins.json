@@ -3,10 +3,11 @@
   "minVersion": "0.8",
   "package": "com.throwingdiscs.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["ItemMixin"],
+  "mixins": ["ItemMixin", "DispenserBehaviorMixin", "WolfEntityMixin"],
   "client": [
     "PlayerEntityModelMixin",
-    "HeldItemRendererMixin"
+    "HeldItemRendererMixin",
+    "PlayerEntityRendererMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

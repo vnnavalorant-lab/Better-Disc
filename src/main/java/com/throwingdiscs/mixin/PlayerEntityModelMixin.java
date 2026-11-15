@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.throwingdiscs.ClashState;
 import com.throwingdiscs.client.ThrowAnimClient;
 
 import net.minecraft.client.model.ModelPart;
@@ -14,6 +15,9 @@ import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Arm;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * Pose dos membros durante o arremesso (terceira pessoa: você e outros jogadores).
@@ -68,11 +72,38 @@ public abstract class PlayerEntityModelMixin<T extends LivingEntity> extends Bip
         part.pivotZ += pos[2];
     }
 
+    /**
+     * Defesa com o disco preso na lâmina: braço da espada levantado (lâmina quase na vertical, como no vídeo de
+     * referência) e tremendo. Só o tremor muda com o desfecho: espada fraca vibra cada vez mais.
+     */
+    @Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+    private void throwingdiscs$applyClash(T entity, float limbAngle, float limbDistance,
+                                          float animationProgress, float headYaw, float headPitch,
+                                          CallbackInfo ci) {
+        if (!(entity instanceof PlayerEntity player) || ThrowAnimClient.firstPersonArm) return;
+        ClashState.Info info = ClashState.get(player);
+        if (info == null || !player.isUsingItem()) return;
+
+        boolean right = (player.getActiveHand() == Hand.MAIN_HAND) == (player.getMainArm() == Arm.RIGHT);
+        ModelPart arm = right ? this.rightArm : this.leftArm;
+        ModelPart sleeve = right ? this.rightSleeve : this.leftSleeve;
+        float side = right ? 1f : -1f;
+        float p = info.progress(animationProgress - player.age);
+        float s = ClashState.shake(info.weak, p);
+        float t = animationProgress;
+
+        arm.pitch = -1.25f + MathHelper.sin(t * 2.1f) * 0.06f * s;
+        arm.yaw = side * -0.30f + MathHelper.sin(t * 2.9f + 1f) * 0.08f * s;
+        arm.roll = MathHelper.sin(t * 3.3f + 2f) * 0.07f * s;
+        sleeve.copyTransform(arm);
+    }
+
     @Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void throwingdiscs$applyThrow(T entity, float limbAngle, float limbDistance,
                                           float animationProgress, float headYaw, float headPitch,
                                           CallbackInfo ci) {
         if (!(entity instanceof PlayerEntity player)) return;
+        if (ThrowAnimClient.firstPersonArm) return;   // braço de 1ª pessoa: pose vanilla (a posição vem do HeldItemRendererMixin)
         ThrowAnimClient.Pose pose = ThrowAnimClient.sample(player, animationProgress);
         if (pose == null) return;
 

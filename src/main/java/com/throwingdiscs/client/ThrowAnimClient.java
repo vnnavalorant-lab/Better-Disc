@@ -89,6 +89,10 @@ public final class ThrowAnimClient {
     private static final Map<Integer, Anim> ANIMS = new HashMap<>();
     /** Controle de push/pop da matriz na primeira pessoa (ver HeldItemRendererMixin). */
     public static boolean firstPersonPushed = false;
+    /** true enquanto o braço de 1ª pessoa é desenhado: o modelo NÃO recebe a pose de arremesso (senão o braço sai torto/longe). */
+    public static boolean firstPersonArm = false;
+    /** Disco a desenhar na ponta da mão durante o desenho do braço de 1ª pessoa (null/vazio = nenhum). */
+    public static net.minecraft.item.ItemStack armDisc = net.minecraft.item.ItemStack.EMPTY;
 
     private ThrowAnimClient() {}
 

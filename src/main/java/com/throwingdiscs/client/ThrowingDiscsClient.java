@@ -9,6 +9,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+import net.minecraft.client.render.entity.WolfEntityRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -16,6 +18,12 @@ public class ThrowingDiscsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         EntityRendererRegistry.register(ModEntities.THROWING_DISC, ThrowingDiscRenderer::new);
+
+        LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
+            if (renderer instanceof WolfEntityRenderer wolfRenderer) {
+                helper.register(new WolfDiscFeatureRenderer(wolfRenderer, ctx.getHeldItemRenderer()));
+            }
+        });
 
         ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_STREAK, WindStreakParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_RING, WindRingParticle.Factory::new);
@@ -32,6 +40,9 @@ public class ThrowingDiscsClient implements ClientModInitializer {
             });
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ThrowAnimClient.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            ThrowAnimClient.clear();
+            com.throwingdiscs.ClashState.clear();
+        });
     }
 }
