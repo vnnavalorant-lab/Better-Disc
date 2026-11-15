@@ -40,13 +40,12 @@ public abstract class HeldItemRendererMixin {
         ThrowAnimClient.firstPersonPushed = true;
 
         if (throwing) {
-            float tw = p[0]; // graus: + = wind-up, - = follow-through
-            float x = tw > 0 ? tw / 55f * 0.20f : tw / 50f * 0.95f;
-            float y = tw > 0 ? tw / 55f * 0.18f : -tw / 50f * 0.05f;
-            float z = -Math.abs(tw) / 55f * 0.25f;
-            matrices.translate(side * x, y, z);
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-side * tw * 0.7f));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * tw * 0.45f));
+            // arremesso por cima: mão sobe/recua na carga, chicoteia à frente e desce no follow-through
+            float up = Math.max(0f, Math.min(1f, (-p[1] - 1.5f) / 1.25f));
+            float down = Math.max(0f, Math.min(1f, (1.5f + p[1]) / 0.8f));
+            matrices.translate(0.0f, 0.40f * up - 0.15f * down, 0.30f * up - 0.45f * down);
+            matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-50f * up + 30f * down));
+            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * 10f * up));
         }
 
         if (blocking) {

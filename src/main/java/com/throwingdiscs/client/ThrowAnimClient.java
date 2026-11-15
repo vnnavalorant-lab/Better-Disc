@@ -10,8 +10,8 @@ import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 
 /**
- * Animação de arremesso (baseada no vídeo): wind-up girando o corpo, varredura lateral,
- * follow-through com o braço cruzando o peito, outro braço atrás e pernas em avanço.
+ * Animação de arremesso por cima do ombro (estilo do addon Actions & Stuff): braço levantado atrás da cabeça,
+ * chicote para frente na soltura, follow-through com o braço descendo, outro braço de equilíbrio e um passo à frente.
  *
  * Valores dos keyframes (todos em radianos, exceto TWIST em graus). Convenção "positivo = para fora"
  * para yaw/roll; o espelhamento para canhotos/braço esquerdo é feito em {@link #sample}/mixins.
@@ -23,14 +23,15 @@ public final class ThrowAnimClient {
     public static final int DURATION = 28;
     public static final int N = 10;
 
-    // {tempo(ticks), 10 valores}
+    // {tempo(ticks), 10 valores}  -- estilo "Actions & Stuff": arremesso por cima do ombro
+    // t4 = pose de carga (braço atrás/acima da cabeça), t7 = soltura (braço chicoteia à frente), t10+ = follow-through
     private static final float[][] KEYS = {
-        {  0,   0f,   0f,    0f,   0f,    0f,    0f,   0f,   0f,    0f,   0f },
-        {  4,  55f, -1.40f, 1.10f, 0f,  -1.20f, -0.90f, 0f,  0.35f, -0.35f, 0.12f },
-        {  7,  -5f, -1.55f, 0.10f, 0f,  -0.60f,  0.40f, 0.2f, 0.00f, -0.20f, 0.20f },
-        { 10, -50f, -1.30f, -1.00f, 0f, -2.50f,  0.50f, 0.3f, 0.50f, -0.55f, 0.22f },
-        { 20, -50f, -1.30f, -1.00f, 0f, -2.50f,  0.50f, 0.3f, 0.50f, -0.55f, 0.22f },
-        { 28,   0f,   0f,    0f,   0f,    0f,    0f,   0f,   0f,    0f,   0f },
+        {  0,   0f,   0f,     0f,    0f,    0f,    0f,   0f,   0f,    0f,   0f },
+        {  4,  20f, -2.75f, 0.15f, 0.25f, -1.15f, -0.10f, 0f,  0.30f, -0.30f, 0.08f },
+        {  7, -10f, -1.55f, -0.05f, 0.05f, -0.40f,  0.10f, 0.2f, 0.25f, -0.45f, 0.10f },
+        { 10, -25f, -0.70f, -0.25f, 0f,   -0.20f,  0.10f, 0.2f, 0.30f, -0.50f, 0.10f },
+        { 18, -25f, -0.70f, -0.25f, 0f,   -0.20f,  0.10f, 0.2f, 0.30f, -0.50f, 0.10f },
+        { 28,   0f,   0f,     0f,    0f,    0f,    0f,   0f,   0f,    0f,   0f },
     };
 
     private record Anim(int startAge, boolean rightArm) {}
