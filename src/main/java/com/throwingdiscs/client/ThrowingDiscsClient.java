@@ -27,6 +27,13 @@ public class ThrowingDiscsClient implements ClientModInitializer {
 
         ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_STREAK, WindStreakParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(ModParticles.WIND_RING, WindRingParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.HONEY_DRIP, HoneyDripParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.HONEY_SPLAT, HoneySplatParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.HONEY_GLINT, HoneyGlintParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.SALIVA_DRIP, SalivaDripParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.SALIVA_SPLAT, SalivaSplatParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.DISC_SPARK, DiscSparkParticle.Factory::new);
+        ParticleFactoryRegistry.getInstance().register(ModParticles.DISC_FLASH, DiscFlashParticle.Factory::new);
 
         ClientPlayNetworking.registerGlobalReceiver(ThrowAnimNetworking.ID, (client, handler, buf, sender) -> {
             int id = buf.readInt();

@@ -29,6 +29,11 @@ public class WolfDiscGoal extends Goal {
     private static final int MAX_CHASE_TICKS = 240;
     private static final int MAX_DELIVER_TICKS = 400;
 
+    /** Acima desta distância do dono o lobo volta a poder se teletransportar (vanilla). */
+    private static final double BUSY_OWNER_DIST = 32.0;
+    /** Alcance (horizontal) com que um disco do dono mantém o lobo "ocupado". */
+    private static final double BUSY_DISC_RANGE = 24.0;
+
     private final WolfEntity wolf;
     private ThrowingDiscEntity target;
     private final Map<Integer, Integer> ignoreUntil = new HashMap<>();
@@ -37,6 +42,24 @@ public class WolfDiscGoal extends Goal {
     public WolfDiscGoal(WolfEntity wolf) {
         this.wolf = wolf;
         this.setControls(EnumSet.of(Control.MOVE, Control.LOOK, Control.JUMP));
+    }
+
+    /**
+     * O lobo está envolvido com um disco do dono (carregando um, ou com um disco pegável por perto)?
+     * Enquanto estiver, o FollowOwnerGoal vanilla não pode rodar: ele teletransporta o lobo até o dono quando
+     * a distância passa de 12 blocos, o que fazia o lobo "sumir" da perseguição antes de pegar o disco
+     * (ex.: logo depois de errar a mordida, quando o nosso goal já tinha parado).
+     */
+    public static boolean isBusy(WolfEntity wolf) {
+        if (wolf.getWorld().isClient || !wolf.isTamed()) return false;
+        LivingEntity owner = wolf.getOwner();
+        if (owner == null) return false;
+        double d2 = wolf.squaredDistanceTo(owner);
+        if (d2 < 81.0 || d2 > BUSY_OWNER_DIST * BUSY_OWNER_DIST) return false;   // perto: nada a evitar; longe demais: vanilla
+        if (wolf.getMainHandStack().getItem() instanceof ThrowingDiscItem) return true;
+        return !wolf.getWorld().getEntitiesByClass(ThrowingDiscEntity.class,
+                wolf.getBoundingBox().expand(BUSY_DISC_RANGE, 12.0, BUSY_DISC_RANGE),
+                d -> d.getOwner() == owner && d.isCatchable()).isEmpty();
     }
 
     private boolean holdsDisc() {

@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.throwingdiscs.WolfDiscGoal;
+import com.throwingdiscs.WolfSaliva;
 
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.TameableEntity;
@@ -22,5 +23,11 @@ public abstract class WolfEntityMixin extends TameableEntity {
     @Inject(method = "initGoals", at = @At("TAIL"))
     private void throwingdiscs$discGoal(CallbackInfo ci) {
         this.goalSelector.add(3, new WolfDiscGoal((WolfEntity) (Object) this));
+    }
+
+    /** Baba (partículas do mod, só no cliente) quando o lobo está com o disco na boca. */
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void throwingdiscs$drool(CallbackInfo ci) {
+        WolfSaliva.tick((WolfEntity) (Object) this);
     }
 }

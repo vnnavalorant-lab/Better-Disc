@@ -9,7 +9,7 @@ Itens: iron_/gold_/diamond_/netherite_throwing_disc (botão direito para arremes
 
 ## Compilar
 Requer JDK 17. Com Gradle 8.6+ instalado: `gradle build` (ou `gradle wrapper --gradle-version 8.6` e depois `./gradlew build`).
-O .jar sai em build/libs/throwing-discs-1.0.0.jar. Requer Fabric API.
+O .jar sai em build/libs/throwing-discs-1.0.2.jar. Requer Fabric API.
 
 ## Ajustes rápidos
 - Pose da animação: `ThrowAnimClient.KEYS` (keyframes), duração `DURATION`, soltura `ThrowAnimNetworking.RELEASE_DELAY`.
@@ -53,9 +53,16 @@ perto da câmera (`HeldItemRendererMixin.THROW_PULL_Z`).
 ## Plantações, mel e ejetores
 - O disco quebra plantações por onde passa (trigo, cenoura, batata, beterraba, caules de melão/abóbora, verruga do Nether,
   arbusto de frutas, tochaflor/pitcher), com drops; respeita proteção de spawn. Vale na ida e na volta.
+  Como o disco voa na altura do peito, a varredura alcança também ~1,7 bloco abaixo dele (ajuste em
+  `ThrowingDiscEntity`: `CROP_RADIUS`, `CROP_REACH_BELOW`, `CROP_REACH_ABOVE`).
 - Bloco de mel: o disco gruda na face do bloco (sem ricochete, sem dano) e só sai quando um jogador chega a ~1,6 bloco
   (vai para o inventário de quem chegou). Se o mel for quebrado, o disco cai como item.
-- Ejetor (e dispensador, mesmo comportamento padrão): lança o disco em linha reta com velocidade total. O ejetor não pega o disco de
+  Enquanto está grudado o disco fica "melado" (partículas próprias do mod, só do lado do cliente): gotas de mel que se formam na
+  borda, esticam e caem deixando uma poça (`honey_drip` / `honey_splat`) e brilhos dourados cintilando (`honey_glint`).
+  Ao ser pego o disco volta ao inventário normal (sem efeito). Texturas em `textures/particle/honey_*.png`; frequência em
+  `ThrowingDiscEntity.spawnHoneyEffects`.
+- Ejetor (e dispensador, mesmo comportamento padrão): lança o disco em linha reta com velocidade total. Disco de ejetor rebate
+  só 1 vez: no 2º impacto contra um bloco ele é largado como item (`MAX_DISPENSED_BOUNCES`), evitando ricochetes quase infinitos. O ejetor não pega o disco de
   volta: ao retornar, o disco é largado no chão à frente dele. Se houver inventário à frente do ejetor, ele transfere normalmente (vanilla).
 
 ## Lobos domados
@@ -63,3 +70,19 @@ Lobos domados (em pé) notam o disco do dono a até 16 blocos: 60% de chance de 
 de agarrá-lo (sem dano — lobos domados nunca são atingidos pelo disco). Com disco acima da boca, o lobo salta até ~3 blocos (sem dano de
 queda). Com o disco na boca (desenhado como a raposa), ele volta ao dono e entrega o item no inventário (ou no chão). Se o lobo morrer, o
 disco cai. Ajustes em `WolfDiscGoal` (`CHASE_CHANCE`, `CATCH_CHANCE`, `CATCH_REACH`, `MAX_JUMP`) e posição na boca em `WolfDiscFeatureRenderer`.
+
+Enquanto há um disco do dono por perto (ou o lobo carrega um), o lobo não segue/teletransporta até o dono (`FollowOwnerGoalMixin` +
+`WolfDiscGoal.isBusy`): o teleporte vanilla (12+ blocos) acontecia assim que o lobo errava a mordida ou desistia do disco. Acima de
+32 blocos do dono o comportamento vanilla volta (teleporte normal).
+
+## Baba do lobo
+Com o disco na boca, o lobo baba (partículas do mod, só no cliente; `WolfSaliva`, chamado pelo `WolfEntityMixin`): parado, fios de
+saliva pendem do canto da boca, esticam, afinam e pingam (`saliva_drip`), virando uma ondinha no chão (`saliva_splat`); correndo, gotículas
+são lançadas para trás. A posição da boca segue a mesma geometria do `WolfDiscFeatureRenderer`. Frequência em `WolfSaliva.tick`.
+
+## Choque entre discos
+Dois discos em ida que se cruzam no ar batem e mudam de rota (colisão elástica entre massas iguais + um empurrão, para o desvio ser
+sempre visível). O ponto da batida entra no caminho dos dois, então a volta continua refazendo o trajeto. Efeitos: clarão em estrela
+(`disc_flash`), 18 faíscas que saem pelo plano do choque, esfriando de branco para laranja e vermelho, caindo e quicando
+(`disc_spark`), e som metálico. Ajustes em `ThrowingDiscEntity`: `DISC_CLASH_DIST` (distância do choque), `DISC_CLASH_COOLDOWN`,
+e a quantidade/velocidade das faíscas em `discSparks`. Discos voltando, presos no mel ou numa espada não colidem.

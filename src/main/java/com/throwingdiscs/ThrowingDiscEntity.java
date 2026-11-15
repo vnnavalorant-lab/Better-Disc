@@ -49,6 +49,7 @@ import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
@@ -96,6 +97,22 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     // --- lançado por ejetor/dispensador: não tem dono para pegar o disco de volta ---
     private boolean dispensed = false;
     private Vec3d homePos = null;                       // ponto à frente do ejetor onde o disco é largado ao "voltar"
+    /** Disco de ejetor rebate só 1 vez: no 2º impacto contra um bloco ele é largado como item. */
+    private static final int MAX_DISPENSED_BOUNCES = 1;
+    private int bounces = 0;
+
+    // --- choque entre discos no ar ---
+    private static final double DISC_CLASH_DIST = 0.55;   // distância entre centros para contar como choque (discos ~0,5 bloco)
+    private static final int DISC_CLASH_COOLDOWN = 8;     // ticks sem novo choque após bater
+    private int discClashCooldown = 0;
+    private Vec3d moveStart = null;                        // trecho percorrido no último tick (para detectar o choque)
+    private Vec3d moveEnd = null;
+    private long moveStamp = -1;                           // tick do mundo em que o trecho acima foi percorrido
+
+    // --- varredura de plantações: o disco voa na altura do peito, então alcança as plantações abaixo dele ---
+    private static final double CROP_RADIUS = 0.45;        // raio horizontal da varredura
+    private static final double CROP_REACH_BELOW = 1.7;    // alcança plantações até ~1,7 bloco abaixo do disco
+    private static final double CROP_REACH_ABOVE = 0.3;
 
     public ThrowingDiscEntity(EntityType<? extends ThrowingDiscEntity> type, World world) {
         super(type, world);
@@ -202,9 +219,48 @@ public class ThrowingDiscEntity extends ProjectileEntity {
             ClashState.mark(getWorld(), clashTarget, this);
             return;
         }
-        if (getStuckSide() >= 0) return;   // grudado no mel: parado, sem rastro de vento
+        if (getStuckSide() >= 0) {         // grudado no mel: parado, sem rastro de vento, mas todo melado
+            spawnHoneyEffects();
+            return;
+        }
         setPosition(getPos().add(getVelocity()));
         spawnSpinParticles();
+    }
+
+    /**
+     * Disco melado (só enquanto está grudado no bloco de mel): gotas de mel que se formam na borda, esticam e caem
+     * deixando uma poça, e brilhos dourados que cintilam na superfície. Ao ser pego, a entidade some e o item volta normal.
+     */
+    private void spawnHoneyEffects() {
+        Direction face = Direction.byId(getStuckSide());
+        net.minecraft.util.math.random.Random rnd = getWorld().random;
+        Vec3d c = getPos();
+        Vec3d u;   // eixos do plano em que o disco está deitado
+        Vec3d w;
+        switch (face.getAxis()) {
+            case X -> { u = new Vec3d(0, 0, 1); w = new Vec3d(0, 1, 0); }
+            case Z -> { u = new Vec3d(1, 0, 0); w = new Vec3d(0, 1, 0); }
+            default -> { u = new Vec3d(1, 0, 0); w = new Vec3d(0, 0, 1); }
+        }
+        Vec3d n = new Vec3d(face.getOffsetX(), face.getOffsetY(), face.getOffsetZ());
+        final double radius = 0.24;
+
+        // brilhos dourados cintilando na superfície do disco
+        if (rnd.nextInt(3) == 0) {
+            double a = rnd.nextDouble() * Math.PI * 2.0;
+            double r = Math.sqrt(rnd.nextDouble()) * radius;
+            Vec3d p = c.add(u.multiply(Math.cos(a) * r)).add(w.multiply(Math.sin(a) * r)).add(n.multiply(0.05));
+            getWorld().addParticle(ModParticles.HONEY_GLINT, p.x, p.y, p.z,
+                    n.x * 0.006, n.y * 0.006 + 0.004, n.z * 0.006);
+        }
+        // gotas de mel escorrendo pela borda (em parede, só pela metade de baixo)
+        if (rnd.nextInt(9) == 0) {
+            double a = face.getAxis() == Direction.Axis.Y
+                    ? rnd.nextDouble() * Math.PI * 2.0
+                    : Math.PI + rnd.nextDouble() * Math.PI;
+            Vec3d p = c.add(u.multiply(Math.cos(a) * radius)).add(w.multiply(Math.sin(a) * radius)).add(n.multiply(0.07));
+            getWorld().addParticle(ModParticles.HONEY_DRIP, p.x, p.y, p.z, 0.0, 0.0, 0.0);
+        }
     }
 
     /**
@@ -243,6 +299,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
     private void serverTick(ServerWorld world) {
         Entity owner = getOwner();
         if (path.isEmpty() && !returning) path.add(getPos());
+        if (discClashCooldown > 0) discClashCooldown--;
         if (getStuckSide() >= 0) {
             tickStuck(world);
             return;
@@ -266,10 +323,102 @@ public class ThrowingDiscEntity extends ProjectileEntity {
 
         if (!returning) {
             moveOutbound(world, owner);
+            if (isRemoved()) return;   // ex.: disco de ejetor largado como item após o ricochete
         } else if (!moveReturn(world, owner)) {
             return; // entidade removida
         }
+        moveStart = from;
+        moveEnd = getPos();
+        moveStamp = world.getTime();
+        if (!returning) checkDiscCollisions(world);
         checkEntityHits(world, owner, from, getPos());
+    }
+
+    // ------------------------------------------------------------------ CHOQUE ENTRE DISCOS
+
+    private boolean canDiscCollide() {
+        return isAlive() && !returning && clashTicks == 0 && getClashTargetId() < 0 && getStuckSide() < 0
+                && discClashCooldown == 0 && flightTicks >= 3;
+    }
+
+    /**
+     * Dois discos que se cruzam no ar batem e mudam de rota (colisão elástica entre massas iguais + um empurrão
+     * para o desvio ser sempre visível), com faíscas e clarão. Cada par é tratado pelo disco que anda por último
+     * no tick, quando os dois já têm o trecho do tick atual (mesmo referencial de tempo).
+     */
+    private void checkDiscCollisions(ServerWorld world) {
+        if (!canDiscCollide() || moveStart == null) return;
+        long now = world.getTime();
+        for (ThrowingDiscEntity o : world.getEntitiesByClass(ThrowingDiscEntity.class,
+                getBoundingBox().expand(3.0), e -> e != this)) {
+            if (o.moveStamp != now || o.moveStart == null || !o.canDiscCollide()) continue;
+            // aproximação máxima entre os dois, andando ao mesmo tempo durante o tick
+            Vec3d w0 = moveStart.subtract(o.moveStart);
+            Vec3d dw = moveEnd.subtract(moveStart).subtract(o.moveEnd.subtract(o.moveStart));
+            double dd = dw.lengthSquared();
+            double tau = dd > 1.0E-9 ? MathHelper.clamp(-w0.dotProduct(dw) / dd, 0.0, 1.0) : 0.0;
+            Vec3d rel = w0.add(dw.multiply(tau));
+            if (rel.length() > DISC_CLASH_DIST) continue;
+            Vec3d pa = moveStart.add(moveEnd.subtract(moveStart).multiply(tau));
+            Vec3d pb = o.moveStart.add(o.moveEnd.subtract(o.moveStart).multiply(tau));
+            collideWithDisc(world, o, pa.add(pb).multiply(0.5), rel);
+            return;
+        }
+    }
+
+    private void collideWithDisc(ServerWorld world, ThrowingDiscEntity o, Vec3d point, Vec3d rel) {
+        Vec3d va = getVelocity();
+        Vec3d vb = o.getVelocity();
+        double sa = getTier().speed, sb = o.getTier().speed;
+        if (va.lengthSquared() < 1.0E-6) va = new Vec3d(0, 0, 1).multiply(sa);
+        if (vb.lengthSquared() < 1.0E-6) vb = new Vec3d(0, 0, 1).multiply(sb);
+
+        // normal do choque: de B para A no ponto de maior aproximação
+        Vec3d n = rel;
+        if (n.lengthSquared() < 1.0E-6) n = va.subtract(vb);
+        if (n.lengthSquared() < 1.0E-6) n = new Vec3d(0, 1, 0);
+        n = n.normalize();
+        double approach = va.subtract(vb).dotProduct(n);   // < 0 = se aproximando
+        if (approach > 0) {                                  // normal virada ao contrário
+            n = n.negate();
+            approach = -approach;
+        }
+        Vec3d dv = n.multiply(approach);
+        Vec3d na = va.subtract(dv).add(n.multiply(0.4 * sa));
+        Vec3d nb = vb.add(dv).subtract(n.multiply(0.4 * sb));
+        if (na.lengthSquared() < 1.0E-6) na = n;
+        if (nb.lengthSquared() < 1.0E-6) nb = n.negate();
+        this.setVelocity(na.normalize().multiply(sa));
+        o.setVelocity(nb.normalize().multiply(sb));
+        this.velocityDirty = true;
+        o.velocityDirty = true;
+
+        // para voltar refazendo o trajeto, o ponto da batida entra no caminho dos dois
+        if (path.size() < MAX_PATH) path.add(getPos());
+        if (o.path.size() < MAX_PATH) o.path.add(o.getPos());
+        this.discClashCooldown = DISC_CLASH_COOLDOWN;
+        o.discClashCooldown = DISC_CLASH_COOLDOWN;
+
+        discSparks(world, point, n);
+    }
+
+    /** Clarão + chuva de faíscas (partículas do mod) saindo pelo plano do choque, e o som metálico. */
+    private static void discSparks(ServerWorld world, Vec3d p, Vec3d n) {
+        world.spawnParticles(ModParticles.DISC_FLASH, p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
+        for (int i = 0; i < 18; i++) {
+            Vec3d r = new Vec3d(world.random.nextGaussian(), world.random.nextGaussian(), world.random.nextGaussian());
+            Vec3d t = r.subtract(n.multiply(r.dotProduct(n)));            // direção contida no plano do choque
+            if (t.lengthSquared() < 1.0E-6) continue;
+            double speed = 0.18 + world.random.nextDouble() * 0.5;
+            Vec3d v = t.normalize().multiply(speed)
+                    .add(n.multiply((world.random.nextDouble() - 0.5) * 0.25))
+                    .add(0, 0.05, 0);
+            world.spawnParticles(ModParticles.DISC_SPARK, p.x, p.y, p.z, 0, v.x, v.y, v.z, 1.0);   // count 0 = velocidade exata
+        }
+        world.playSound(null, p.x, p.y, p.z, SoundEvents.ITEM_SHIELD_BLOCK, SoundCategory.PLAYERS,
+                0.7f, 1.8f + world.random.nextFloat() * 0.3f);
+        world.playSound(null, p.x, p.y, p.z, SoundEvents.ITEM_TRIDENT_HIT_GROUND, SoundCategory.PLAYERS,
+                0.5f, 1.9f);
     }
 
     private void beginReturn() {
@@ -319,6 +468,17 @@ public class ThrowingDiscEntity extends ProjectileEntity {
 
         Direction side = hit.getSide();
         Vec3d n = new Vec3d(side.getOffsetX(), side.getOffsetY(), side.getOffsetZ());
+
+        // disco de ejetor: já usou o único ricochete, então no próximo impacto cai como item
+        if (dispensed && bounces >= MAX_DISPENSED_BOUNCES) {
+            Vec3d dropPos = hit.getPos().add(n.multiply(0.2));
+            setPosition(dropPos);
+            onBounce(world, hit, dropPos);
+            dropAsItem(world);
+            return;
+        }
+        bounces++;
+
         Vec3d reflected = vel.subtract(n.multiply(2.0 * vel.dotProduct(n)));
         if (reflected.lengthSquared() < 1.0E-6) reflected = n;
         reflected = reflected.normalize().multiply(speed);
@@ -341,13 +501,17 @@ public class ThrowingDiscEntity extends ProjectileEntity {
                 || state.getBlock() instanceof SweetBerryBushBlock;
     }
 
-    /** Quebra (com drops) as plantações que o disco atravessa entre dois pontos. */
+    /**
+     * Quebra (com drops) as plantações que o disco varre entre dois pontos.
+     * O disco voa na altura do peito (bem acima das plantações), então a varredura cobre também a faixa
+     * abaixo dele (CROP_REACH_BELOW) em vez de só o bloco exato em que o disco está.
+     */
     private void breakCrops(ServerWorld world, Entity owner, Vec3d from, Vec3d to) {
-        int steps = Math.max(1, Math.min(24, (int) Math.ceil(from.distanceTo(to) / 0.5)));
+        int steps = Math.max(1, Math.min(24, (int) Math.ceil(from.distanceTo(to) / 0.4)));
         for (int i = 0; i <= steps; i++) {
             Vec3d p = from.lerp(to, i / (double) steps);
-            BlockPos min = BlockPos.ofFloored(p.x - 0.3, p.y - 0.15, p.z - 0.3);
-            BlockPos max = BlockPos.ofFloored(p.x + 0.3, p.y + 0.15, p.z + 0.3);
+            BlockPos min = BlockPos.ofFloored(p.x - CROP_RADIUS, p.y - CROP_REACH_BELOW, p.z - CROP_RADIUS);
+            BlockPos max = BlockPos.ofFloored(p.x + CROP_RADIUS, p.y + CROP_REACH_ABOVE, p.z + CROP_RADIUS);
             for (BlockPos bp : BlockPos.iterate(min, max)) {
                 if (!isCrop(world.getBlockState(bp))) continue;
                 if (owner instanceof PlayerEntity pl && !world.canPlayerModifyAt(pl, bp)) continue;
@@ -366,8 +530,9 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         setPosition(pos);
         setVelocity(Vec3d.ZERO);
         this.dataTracker.set(STUCK_SIDE, side.getId());
-        world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, Blocks.HONEY_BLOCK.getDefaultState()),
-                pos.x, pos.y, pos.z, 10, 0.15, 0.15, 0.15, 0.05);
+        // respingo de mel (partículas próprias do mod): gotículas que voam, caem e viram poças, e brilhos dourados
+        world.spawnParticles(ModParticles.HONEY_DRIP, pos.x, pos.y, pos.z, 10, 0.12, 0.12, 0.12, 0.10);
+        world.spawnParticles(ModParticles.HONEY_GLINT, pos.x, pos.y, pos.z, 8, 0.2, 0.2, 0.2, 0.02);
         world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.BLOCK_HONEY_BLOCK_PLACE,
                 SoundCategory.BLOCKS, 1.0f, 0.9f);
     }
@@ -679,6 +844,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         nbt.putBoolean("Hostile", hostileReturn);
         nbt.putInt("StuckSide", getStuckSide());
         nbt.putBoolean("Dispensed", dispensed);
+        nbt.putInt("Bounces", bounces);
         if (homePos != null) {
             nbt.putDouble("HomeX", homePos.x);
             nbt.putDouble("HomeY", homePos.y);
@@ -711,6 +877,7 @@ public class ThrowingDiscEntity extends ProjectileEntity {
         hostileReturn = nbt.getBoolean("Hostile");
         this.dataTracker.set(STUCK_SIDE, nbt.contains("StuckSide") ? nbt.getInt("StuckSide") : -1);
         dispensed = nbt.getBoolean("Dispensed");
+        bounces = nbt.getInt("Bounces");
         homePos = nbt.contains("HomeX") ? new Vec3d(nbt.getDouble("HomeX"), nbt.getDouble("HomeY"), nbt.getDouble("HomeZ")) : null;
         clashTarget = nbt.containsUuid("ClashTarget") ? nbt.getUuid("ClashTarget") : null;
         parrier = nbt.containsUuid("Parrier") ? nbt.getUuid("Parrier") : null;
