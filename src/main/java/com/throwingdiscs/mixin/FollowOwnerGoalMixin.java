@@ -14,10 +14,6 @@ import net.minecraft.entity.ai.goal.FollowOwnerGoal;
 import net.minecraft.entity.passive.TameableEntity;
 import net.minecraft.entity.passive.WolfEntity;
 
-/**
- * Lobo domado envolvido com um disco do dono não segue/teletransporta até o dono (o FollowOwnerGoal vanilla
- * teleporta o lobo quando ele está a 12+ blocos do dono, o que atrapalhava a perseguição do disco).
- */
 @Mixin(FollowOwnerGoal.class)
 public abstract class FollowOwnerGoalMixin {
     @Shadow @Final private TameableEntity tameable;

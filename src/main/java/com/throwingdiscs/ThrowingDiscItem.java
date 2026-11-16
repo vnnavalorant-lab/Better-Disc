@@ -14,7 +14,6 @@ import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.UseAction;
 import net.minecraft.world.World;
 
-/** Segure o botão direito para carregar (mesmo tempo do arco: 20 ticks = força máxima) e solte para arremessar. */
 public class ThrowingDiscItem extends Item {
     private final DiscTier tier;
 
@@ -27,7 +26,6 @@ public class ThrowingDiscItem extends Item {
         return tier;
     }
 
-    /** Reparo na bigorna com o material do disco (ferro, ouro, diamante ou netherite). */
     @Override
     public boolean canRepair(ItemStack stack, ItemStack ingredient) {
         return switch (tier) {
@@ -50,7 +48,7 @@ public class ThrowingDiscItem extends Item {
 
     @Override
     public UseAction getUseAction(ItemStack stack) {
-        return UseAction.NONE; // a pose de carregar é feita pela animação própria do mod
+        return UseAction.NONE;
     }
 
     @Override
@@ -62,7 +60,7 @@ public class ThrowingDiscItem extends Item {
     public void onStoppedUsing(ItemStack stack, World world, LivingEntity user, int remainingUseTicks) {
         if (!(user instanceof PlayerEntity player)) return;
         int used = getMaxUseTime(stack) - remainingUseTicks;
-        float power = BowItem.getPullProgress(used);   // idêntico ao arco
+        float power = BowItem.getPullProgress(used);
         if (power < 0.1f) return;
 
         player.getItemCooldownManager().set(this, 4);

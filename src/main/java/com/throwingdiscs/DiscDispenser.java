@@ -8,7 +8,6 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Position;
 import net.minecraft.util.math.Vec3d;
 
-/** Ejetor/dispensador lançando o disco em linha reta (ver DispenserBehaviorMixin). */
 public final class DiscDispenser {
     private DiscDispenser() {}
 
@@ -18,7 +17,7 @@ public final class DiscDispenser {
         Position out = DispenserBlock.getOutputLocation(pointer);
         Vec3d pos = new Vec3d(out.getX(), out.getY(), out.getZ());
         ItemStack one = stack.split(1);
-        if (one.isDamageable()) one.setDamage(one.getDamage() + 1);   // cada lançamento gasta 1 de durabilidade
+        if (one.isDamageable()) one.setDamage(one.getDamage() + 1);
         world.spawnEntity(new ThrowingDiscEntity(world, one, pos,
                 new Vec3d(dir.getOffsetX(), dir.getOffsetY(), dir.getOffsetZ())));
         return stack;

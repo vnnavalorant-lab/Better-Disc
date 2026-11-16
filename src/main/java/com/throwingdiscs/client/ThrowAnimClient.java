@@ -10,21 +10,13 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 
-/**
- * Animação de arremesso importada de animation_disc_player.bbmodel (animação "attack", 1.125s).
- * Os keyframes abaixo são os do Blockbench (graus / pixels, convenção Bedrock, interpolação catmull-rom).
- * Conversão para ModelPart do Java feita nos mixins: pitch = -x, yaw = -y, roll = z; pivotX -= x, pivotY -= y, pivotZ += z.
- *
- * Carga (segurar botão direito): toca o começo da animação até 0.375s e segura essa pose.
- * Soltar: continua dali até o fim.
- */
+// keyframes do Blockbench; nos mixins: pitch = -x, yaw = -y, roll = z
 public final class ThrowAnimClient {
-    public static final float CHARGE_TIME = 0.375f;           // segundos (pose de carga)
-    public static final float DURATION_TICKS = 1.125f * 20f;  // 22.5 ticks
+    public static final float CHARGE_TIME = 0.375f;
+    public static final float DURATION_TICKS = 1.125f * 20f;
 
     public static final int HEAD = 0, BODY = 1, R_ARM = 2, L_ARM = 3, R_LEG = 4, L_LEG = 5;
 
-    /** Pose amostrada (convenção do arremesso com a mão DIREITA; espelhar para canhotos). */
     public static final class Pose {
         public final float[][] rot = new float[6][3];
         public final float[][] pos = new float[6][3];
@@ -87,17 +79,12 @@ public final class ThrowAnimClient {
     private record Anim(float startAge, boolean rightArm) {}
 
     private static final Map<Integer, Anim> ANIMS = new HashMap<>();
-    /** Controle de push/pop da matriz na primeira pessoa (ver HeldItemRendererMixin). */
-    public static boolean firstPersonPushed = false;
-    /** true enquanto o braço de 1ª pessoa é desenhado: o modelo NÃO recebe a pose de arremesso (senão o braço sai torto/longe). */
     public static boolean firstPersonArm = false;
-    /** Disco a desenhar na ponta da mão durante o desenho do braço de 1ª pessoa (null/vazio = nenhum). */
     public static net.minecraft.item.ItemStack armDisc = net.minecraft.item.ItemStack.EMPTY;
 
     private ThrowAnimClient() {}
 
     public static void start(PlayerEntity player, boolean rightArm) {
-        // continua exatamente da pose de carga (0.375s = 7.5 ticks)
         ANIMS.put(player.getId(), new Anim(player.age - CHARGE_TIME * 20f, rightArm));
     }
 
@@ -118,11 +105,6 @@ public final class ThrowAnimClient {
         return true;
     }
 
-    /**
-     * Pose atual do jogador (animação de soltar ou pose de carga) ou null.
-     * Compatibilidade: não anima em poses especiais (nadando, elytra, dormindo...) nem em espectador,
-     * para não brigar com o vanilla/outros mods nessas situações.
-     */
     public static Pose sample(PlayerEntity p, float ageProgress) {
         Anim a = ANIMS.get(p.getId());
         float timeSec = -1f;

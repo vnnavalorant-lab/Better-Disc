@@ -8,7 +8,6 @@ import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.DefaultParticleType;
 
-/** Brilho dourado em forma de estrela: surge, gira devagar, cintila e some. Brilha mesmo no escuro. */
 public class HoneyGlintParticle extends SpriteBillboardParticle {
     private final float baseScale;
     private final float spin;
@@ -52,7 +51,7 @@ public class HoneyGlintParticle extends SpriteBillboardParticle {
         this.prevAngle = this.angle;
         this.angle += spin;
         float t = this.age / (float) this.maxAge;
-        this.alpha = (float) Math.sin(Math.PI * t);      // acende e apaga
+        this.alpha = (float) Math.sin(Math.PI * t);
     }
 
     @Override
@@ -63,7 +62,7 @@ public class HoneyGlintParticle extends SpriteBillboardParticle {
 
     @Override
     protected int getBrightness(float tint) {
-        return 0xF000F0;                                  // brilho total
+        return 0xF000F0; // luz máxima
     }
 
     @Override

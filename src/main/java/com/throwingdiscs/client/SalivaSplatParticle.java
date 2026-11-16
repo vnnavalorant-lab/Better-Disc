@@ -12,7 +12,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/** Ondinha de saliva no chão: abre rápido como um anel e some. (vx = multiplicador de tamanho.) */
 public class SalivaSplatParticle extends SpriteBillboardParticle {
     private final float maxHalf;
     private final float rot;

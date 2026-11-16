@@ -12,10 +12,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/**
- * Faísca do choque entre discos: risco brilhante alinhado ao movimento (comprimento proporcional à velocidade),
- * começa branco-amarelado e esfria para laranja e vermelho enquanto some; cai com gravidade e quica no chão.
- */
 public class DiscSparkParticle extends SpriteBillboardParticle {
     private final float halfWidth;
 
@@ -49,7 +45,7 @@ public class DiscSparkParticle extends SpriteBillboardParticle {
         this.velocityY -= 0.035;
         double vyBefore = this.velocityY;
         this.move(this.velocityX, this.velocityY, this.velocityZ);
-        if (this.onGround) {                       // quica e perde energia
+        if (this.onGround) {
             this.velocityY = -vyBefore * 0.35;
             this.velocityX *= 0.6;
             this.velocityZ *= 0.6;
@@ -93,7 +89,6 @@ public class DiscSparkParticle extends SpriteBillboardParticle {
 
         float u0 = this.getMinU(), u1 = this.getMaxU(), v0 = this.getMinV(), v1 = this.getMaxV();
         int light = this.getBrightness(tickDelta);
-        // textura: cauda (esquerda) -> ponta quente (direita), apontando no sentido do movimento
         vc.vertex(px - lx - wx, py - ly - wy, pz - lz - wz).texture(u0, v1).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px - lx + wx, py - ly + wy, pz - lz + wz).texture(u0, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + lx + wx, py + ly + wy, pz + lz + wz).texture(u1, v0).color(red, green, blue, alpha).light(light).next();

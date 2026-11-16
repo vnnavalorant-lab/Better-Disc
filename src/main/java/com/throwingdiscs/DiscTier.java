@@ -10,7 +10,6 @@ public enum DiscTier {
     public final float damage;
     public final double speed;
     public final int color;
-    /** Durabilidade: cada lançamento (jogador ou ejetor) gasta 1; ao zerar, o disco quebra. */
     public final int durability;
 
     DiscTier(String id, float damage, double speed, int color, int durability) {

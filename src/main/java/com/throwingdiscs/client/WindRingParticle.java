@@ -12,7 +12,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/** Arcos de vento deitados (plano horizontal, como o disco), girando e se expandindo enquanto somem. */
 public class WindRingParticle extends SpriteBillboardParticle {
     private final float startAngle;
     private final float baseAlpha;
@@ -56,18 +55,16 @@ public class WindRingParticle extends SpriteBillboardParticle {
         float pz = (float) (MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - cam.z);
 
         float t = (this.age + tickDelta) / this.maxAge;
-        float half = 0.42f + 0.38f * t;                     // expande
-        float ang = this.startAngle + (this.age + tickDelta) * 0.55f; // gira
+        float half = 0.42f + 0.38f * t;
+        float ang = this.startAngle + (this.age + tickDelta) * 0.55f;
         float c = MathHelper.cos(ang) * half, s = MathHelper.sin(ang) * half;
 
         float u0 = this.getMinU(), u1 = this.getMaxU(), v0 = this.getMinV(), v1 = this.getMaxV();
         int light = this.getBrightness(tickDelta);
-        // quadrado no plano XZ rotacionado por 'ang'
         vc.vertex(px - c - s, py, pz - s + c).texture(u0, v1).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px - c + s, py, pz - s - c).texture(u0, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c + s, py, pz + s - c).texture(u1, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c - s, py, pz + s + c).texture(u1, v1).color(red, green, blue, alpha).light(light).next();
-        // lado de baixo (para ser visto de baixo também)
         vc.vertex(px + c - s, py, pz + s + c).texture(u1, v1).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c + s, py, pz + s - c).texture(u1, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px - c + s, py, pz - s - c).texture(u0, v0).color(red, green, blue, alpha).light(light).next();

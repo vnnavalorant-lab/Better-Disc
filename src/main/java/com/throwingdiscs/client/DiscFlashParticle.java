@@ -8,7 +8,6 @@ import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.DefaultParticleType;
 
-/** Clarão em estrela no ponto do choque entre discos: estoura rápido e apaga em poucos ticks. */
 public class DiscFlashParticle extends SpriteBillboardParticle {
     private final float baseScale;
 

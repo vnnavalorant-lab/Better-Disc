@@ -47,9 +47,6 @@ public class ThrowingDiscsClient implements ClientModInitializer {
             });
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            ThrowAnimClient.clear();
-            com.throwingdiscs.ClashState.clear();
-        });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ThrowAnimClient.clear());
     }
 }

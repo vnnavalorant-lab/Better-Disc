@@ -14,10 +14,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/**
- * Baba do lobo. Velocidade zero = fio PENDURADO (nasce fino na boca, estica bastante, afina e se solta);
- * velocidade != 0 = gotícula lançada. Ao cair vira uma ondinha (SALIVA_SPLAT).
- */
 public class SalivaDripParticle extends SpriteBillboardParticle {
     private final boolean droplet;
     private final int hangTicks;
@@ -54,7 +50,6 @@ public class SalivaDripParticle extends SpriteBillboardParticle {
         }
     }
 
-    /** O fio estica bem mais que o mel (saliva é mais fluida). */
     private float hangLength(float t) {
         return size * 2.0f * (1.0f + 3.2f * (float) Math.pow(t, 1.5));
     }

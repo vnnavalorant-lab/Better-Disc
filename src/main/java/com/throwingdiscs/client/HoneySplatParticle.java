@@ -12,7 +12,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/** Poça de mel deitada no chão: se espalha rápido, fica um tempo e some devagar. (vx = multiplicador de tamanho.) */
 public class HoneySplatParticle extends SpriteBillboardParticle {
     private final float maxHalf;
     private final float rot;
@@ -59,7 +58,7 @@ public class HoneySplatParticle extends SpriteBillboardParticle {
         float pz = (float) (MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - cam.z);
 
         float grow = MathHelper.clamp((this.age + tickDelta) / 6f, 0f, 1f);
-        grow = 1f - (1f - grow) * (1f - grow);              // espalha rápido e desacelera
+        grow = 1f - (1f - grow) * (1f - grow);
         float half = maxHalf * (0.25f + 0.75f * grow);
         float c = MathHelper.cos(rot) * half, s = MathHelper.sin(rot) * half;
 
@@ -69,7 +68,6 @@ public class HoneySplatParticle extends SpriteBillboardParticle {
         vc.vertex(px - c + s, py, pz - s - c).texture(u0, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c + s, py, pz + s - c).texture(u1, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c - s, py, pz + s + c).texture(u1, v1).color(red, green, blue, alpha).light(light).next();
-        // verso (visto de baixo)
         vc.vertex(px + c - s, py, pz + s + c).texture(u1, v1).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + c + s, py, pz + s - c).texture(u1, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px - c + s, py, pz - s - c).texture(u0, v0).color(red, green, blue, alpha).light(light).next();

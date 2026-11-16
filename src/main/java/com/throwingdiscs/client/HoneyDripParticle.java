@@ -16,17 +16,11 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/**
- * Gota de mel do disco melado.
- *  - Velocidade zero  = gota PENDURADA: nasce pequena na borda, incha e se estica para baixo (preso ao disco por um fio)
- *    e então se solta e cai, esticando conforme acelera; ao tocar o chão vira uma poça (HONEY_SPLAT).
- *  - Velocidade != 0  = gotícula do respingo: voa em arco e vira uma poça pequena.
- */
 public class HoneyDripParticle extends SpriteBillboardParticle {
     private final boolean droplet;
     private final int hangTicks;
-    private final float size;          // meia largura máxima
-    private final double anchorY;      // onde a gota está presa (topo do quad enquanto pendurada)
+    private final float size;
+    private final double anchorY;
     private boolean hanging;
 
     protected HoneyDripParticle(ClientWorld world, double x, double y, double z,
@@ -59,7 +53,6 @@ public class HoneyDripParticle extends SpriteBillboardParticle {
         }
     }
 
-    /** Comprimento do quad enquanto a gota incha pendurada (t de 0 a 1). */
     private float hangLength(float t) {
         return size * 2.0f * (0.9f + 1.9f * t * t);
     }
@@ -74,7 +67,7 @@ public class HoneyDripParticle extends SpriteBillboardParticle {
             return;
         }
         if (hanging) {
-            if (this.age >= hangTicks) {                // desprende: o quad passa a ser centrado na gota
+            if (this.age >= hangTicks) {
                 hanging = false;
                 this.setPos(this.x, anchorY - hangLength(1.0f) * 0.5, this.z);
                 this.prevPosY = this.y;
@@ -108,7 +101,7 @@ public class HoneyDripParticle extends SpriteBillboardParticle {
     @Override
     protected int getBrightness(float tint) {
         int l = super.getBrightness(tint);
-        int block = Math.max(l & 0xFF, 0x90);   // o mel nunca fica totalmente escuro
+        int block = Math.max(l & 0xFF, 0x90);
         return (l & 0xFFFF0000) | block;
     }
 
@@ -122,18 +115,17 @@ public class HoneyDripParticle extends SpriteBillboardParticle {
         float top, bottom, halfWidth;
         if (hanging) {
             float t = MathHelper.clamp((this.age + tickDelta) / (float) hangTicks, 0f, 1f);
-            top = py;                                       // preso ao disco
+            top = py;
             bottom = py - hangLength(t);
             halfWidth = size * (0.55f + 0.45f * t);
         } else {
             float fall = MathHelper.clamp((float) -this.velocityY, 0f, 0.7f);
             float len = size * 2.0f * (1.0f + Math.min(2.4f, fall * 6.0f));
-            top = py + len * 0.55f;                         // a ponta fina fica para cima (rastro)
+            top = py + len * 0.55f;
             bottom = py - len * 0.45f;
             halfWidth = size * (1.0f - Math.min(0.35f, fall * 0.7f));
         }
 
-        // billboard só na horizontal (a gota é vertical): direita = cima x direção da câmera
         float len = MathHelper.sqrt(px * px + pz * pz);
         float rx, rz;
         if (len < 1.0E-4f) {

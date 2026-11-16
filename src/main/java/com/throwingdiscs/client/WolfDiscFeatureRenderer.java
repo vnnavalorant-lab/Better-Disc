@@ -14,7 +14,6 @@ import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RotationAxis;
 
-/** Disco na boca do lobo (igual à raposa com item na boca). */
 public class WolfDiscFeatureRenderer extends FeatureRenderer<WolfEntity, WolfEntityModel<WolfEntity>> {
     private final HeldItemRenderer heldItemRenderer;
 
@@ -32,7 +31,6 @@ public class WolfDiscFeatureRenderer extends FeatureRenderer<WolfEntity, WolfEnt
         if (!(stack.getItem() instanceof ThrowingDiscItem)) return;
 
         matrices.push();
-        // pivô da cabeça do lobo (px do modelo) e, a partir dele, a boca
         matrices.translate(-1.0f / 16f, 13.5f / 16f, -7.0f / 16f);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(headYaw));
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(headPitch));

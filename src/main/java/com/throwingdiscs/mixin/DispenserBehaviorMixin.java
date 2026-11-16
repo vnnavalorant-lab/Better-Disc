@@ -12,10 +12,6 @@ import net.minecraft.block.dispenser.ItemDispenserBehavior;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPointer;
 
-/**
- * O ejetor (e o dispensador, que usa o mesmo comportamento padrão) lança o disco em linha reta em vez de só largá-lo.
- * Só mexe no comportamento PADRÃO (classe exata ItemDispenserBehavior) e só para os discos; o resto é vanilla.
- */
 @Mixin(ItemDispenserBehavior.class)
 public abstract class DispenserBehaviorMixin {
     @Inject(method = "dispenseSilently", at = @At("HEAD"), cancellable = true)

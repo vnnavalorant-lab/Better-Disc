@@ -12,7 +12,6 @@ import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-/** Risco branco translúcido alinhado ao seu movimento (largura voltada para a câmera): "corte" no vento. */
 public class WindStreakParticle extends SpriteBillboardParticle {
     private final Vec3d dir;
     private final float halfLength;
@@ -73,7 +72,6 @@ public class WindStreakParticle extends SpriteBillboardParticle {
 
         float u0 = this.getMinU(), u1 = this.getMaxU(), v0 = this.getMinV(), v1 = this.getMaxV();
         int light = this.getBrightness(tickDelta);
-        // textura: cauda (esquerda) -> ponta (direita); a ponta aponta no sentido do movimento
         vc.vertex(px - lx - wx, py - ly - wy, pz - lz - wz).texture(u0, v1).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px - lx + wx, py - ly + wy, pz - lz + wz).texture(u0, v0).color(red, green, blue, alpha).light(light).next();
         vc.vertex(px + lx + wx, py + ly + wy, pz + lz + wz).texture(u1, v0).color(red, green, blue, alpha).light(light).next();
