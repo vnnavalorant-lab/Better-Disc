@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "Throwing Discs",
   "description": "Discos boomerang que ricocheteiam nos blocos e voltam para o jogador.",
-  "authors": [],
+  "authors": ["Scute6o"],
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
